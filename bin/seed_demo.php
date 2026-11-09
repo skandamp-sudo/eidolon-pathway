@@ -207,6 +207,7 @@ try {
     $userStmt = $pdo->prepare("INSERT INTO users (name, email, password_hash, role, created_at) VALUES (?, ?, ?, 'college', ?)");
     $userStmt->execute(['Prof. M. S. Rao (DSATM Placement Officer - DEMO)', 'demo.placement@dsatm.test', $officerHash, $nowStr]);
     $officerId = (int) $pdo->lastInsertId();
+    $collegeOfficerId = $officerId;
 
     $memStmt = $pdo->prepare("
         INSERT INTO organization_memberships (organization_id, user_id, role, status, created_at, updated_at)
@@ -240,6 +241,7 @@ try {
     ];
 
     $companyIds = [];
+    $recruiterIds = [];
     foreach ($companies as $c) {
         $orgStmt->execute([$c['name'], $c['slug'], 'COMPANY', $adminId, $now, $now]);
         $cOrgId = (int) $pdo->lastInsertId();
@@ -249,9 +251,12 @@ try {
         $userStmt = $pdo->prepare("INSERT INTO users (name, email, password_hash, role, created_at) VALUES (?, ?, ?, 'company', ?)");
         $userStmt->execute([$c['recruiter_name'], $c['recruiter_email'], $cHash, $nowStr]);
         $cUserId = (int) $pdo->lastInsertId();
+        $recruiterIds[$c['slug']] = $cUserId;
 
         $memStmt->execute([$cOrgId, $cUserId, $now, $now]);
     }
+    $companyEidolonId = $companyIds['eidolon-research-labs-demo'];
+    $recruiterEidolonId = $recruiterIds['eidolon-research-labs-demo'];
 
     echo "Seeding 6 realistic demo job & internship opportunities...\n";
     $jobs = [
@@ -333,8 +338,13 @@ try {
     $studentAaravId = (int) $pdo->lastInsertId();
 
     $profStmt = $pdo->prepare("
-        INSERT INTO student_profiles (user_id, college, skills, bio, github_username, college_org_id, college_share_consent, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, 1, ?)
+        INSERT INTO student_profiles (
+            user_id, college, skills, bio, github_username,
+            college_org_id, college_share_consent,
+            share_contact_details, share_resume, share_achievements, share_applications,
+            talent_discovery_opt_in, enrollment_number, degree, department, graduation_year,
+            affiliation_status, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, 1, 1, 1, 1, 1, 1, '1DT23CS007', 'B.E. Computer Science', 'Computer Science & Engineering', 2026, 'AFFILIATED', ?)
     ");
     $profStmt->execute([
         $studentAaravId,
@@ -344,6 +354,27 @@ try {
         'aarav-patel-dev',
         $collegeId,
         $now
+    ]);
+
+    // Seed approved affiliation request for Aarav
+    $affReqStmt = $pdo->prepare("
+        INSERT INTO college_affiliation_requests (
+            student_id, college_org_id, enrollment_number, degree, department,
+            graduation_year, verification_note, status, reviewed_by_user_id,
+            review_decision_reason, reviewed_at, created_at, updated_at
+        ) VALUES (
+            ?, ?, '1DT23CS007', 'B.E. Computer Science', 'Computer Science & Engineering',
+            2026, '7th semester institutional placement registration.', 'APPROVED', ?,
+            'Verified through University Registrar database.', ?, ?, ?
+        )
+    ");
+    $affReqStmt->execute([
+        $studentAaravId,
+        $collegeId,
+        $collegeOfficerId,
+        $now - 86400,
+        $now - 90000,
+        $now - 86400
     ]);
 
     // Seed completed portfolio assessment
@@ -454,6 +485,68 @@ try {
         $now
     ]);
 
+    // Seed structured achievements for Aarav
+    $achStmt = $pdo->prepare("
+        INSERT INTO student_achievements (
+            user_id, category, title, issuer, issue_date, credential_url,
+            description, evidence_assessment_id, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ");
+    $achStmt->execute([
+        $studentAaravId,
+        'hackathon',
+        'Code for a Billion 2026 Hackathon Finalist',
+        'Hackathon Jury',
+        'November 2026',
+        'https://example.com/cfab-2026/aarav',
+        'Developed zero-dependency local-first verifiable career architecture.',
+        $assessmentId,
+        $now - 86400,
+        $now - 86400
+    ]);
+    $achStmt->execute([
+        $studentAaravId,
+        'certification',
+        'AWS Certified Solutions Architect Associate',
+        'Amazon Web Services',
+        'August 2025',
+        'https://aws.amazon.com/verify/12345',
+        'Demonstrated architecture design across resilient distributed cloud systems.',
+        null,
+        $now - 172800,
+        $now - 172800
+    ]);
+
+    // Seed access audit logs for Aarav
+    $accessLogStmt = $pdo->prepare("
+        INSERT INTO sensitive_record_access_logs (
+            accessor_user_id, accessor_role, accessor_org_id, student_id,
+            record_type, record_id, access_context, granted, accessed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ");
+    $accessLogStmt->execute([
+        $collegeOfficerId,
+        'college',
+        $collegeId,
+        $studentAaravId,
+        'profile',
+        null,
+        'college_placement_details',
+        1,
+        $now - 7200
+    ]);
+    $accessLogStmt->execute([
+        $recruiterEidolonId,
+        'company',
+        $companyEidolonId,
+        $studentAaravId,
+        'application',
+        1,
+        'recruiter_candidate_view',
+        1,
+        $now - 3600
+    ]);
+
     echo "Seeding non-consenting student (Priya Sharma - Confidential)...\n";
     $confidentialHash = password_hash($generatedPasswords['student_confidential'], PASSWORD_DEFAULT);
     $userStmt = $pdo->prepare("INSERT INTO users (name, email, password_hash, role, created_at) VALUES (?, ?, ?, 'student', ?)");
@@ -461,8 +554,13 @@ try {
     $studentPriyaId = (int) $pdo->lastInsertId();
 
     $profStmt = $pdo->prepare("
-        INSERT INTO student_profiles (user_id, college, skills, bio, github_username, college_org_id, college_share_consent, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, 0, ?)
+        INSERT INTO student_profiles (
+            user_id, college, skills, bio, github_username,
+            college_org_id, college_share_consent,
+            share_contact_details, share_resume, share_achievements, share_applications,
+            talent_discovery_opt_in, enrollment_number, degree, department, graduation_year,
+            affiliation_status, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, '1DT23CS088', 'B.E. Information Science', 'Information Science & Engineering', 2026, 'AFFILIATED', ?)
     ");
     $profStmt->execute([
         $studentPriyaId,
@@ -472,6 +570,29 @@ try {
         'priya-sec',
         $collegeId,
         $now
+    ]);
+
+    // Seed approved affiliation request for Priya
+    $affReqStmt->execute([
+        $studentPriyaId,
+        $collegeId,
+        $collegeOfficerId,
+        $now - 86400,
+        $now - 90000,
+        $now - 86400
+    ]);
+
+    // Seed an access audit log showing denied placement attempt for Priya (Confidential)
+    $accessLogStmt->execute([
+        $collegeOfficerId,
+        'college',
+        $collegeId,
+        $studentPriyaId,
+        'profile',
+        null,
+        'college_placement_details',
+        0,
+        $now - 1800
     ]);
 
     // Seed an application for Priya (Cybersecurity Research Intern)
@@ -486,6 +607,51 @@ try {
         $now,
         $now
     ]);
+
+    // Seed 3rd student: Rohan Kumar with a PENDING affiliation request for placement officer review demo
+    echo "Seeding applicant student (Rohan Kumar) with pending affiliation request...\n";
+    $rohanHash = password_hash('StudentRohan#2026', PASSWORD_DEFAULT);
+    $userStmt = $pdo->prepare("INSERT INTO users (name, email, password_hash, role, created_at) VALUES (?, ?, ?, 'student', ?)");
+    $userStmt->execute(['Rohan Kumar (Demo Applicant)', 'demo.student.rohan@dsatm.test', $rohanHash, $nowStr]);
+    $studentRohanId = (int) $pdo->lastInsertId();
+
+    $profStmt->execute([
+        $studentRohanId,
+        'Dayananda Sagar Academy of Technology and Management, Bengaluru',
+        'Go, Docker, Kubernetes, Microservices',
+        'Cloud engineering student preparing for platform operations roles.',
+        'rohan-cloud',
+        null, // Unaffiliated until review
+        $now
+    ]);
+
+    $pendingReqStmt = $pdo->prepare("
+        INSERT INTO college_affiliation_requests (
+            student_id, college_org_id, enrollment_number, degree, department,
+            graduation_year, verification_note, status, created_at, updated_at
+        ) VALUES (?, ?, '1DT23CS105', 'B.E. Computer Science', 'Computer Science & Engineering', 2026, 'Final year cloud computing specialization enrollment.', 'PENDING', ?, ?)
+    ");
+    $pendingReqStmt->execute([
+        $studentRohanId,
+        $collegeId,
+        $now - 3600,
+        $now - 3600
+    ]);
+
+    // Seed sample pending organization access request for EIDOLON CONTROL review demo
+    echo "Seeding pending institutional access request (Aether Autonomous Robotics)...\n";
+    $orgReqStmt = $pdo->prepare("
+        INSERT INTO organization_requests (
+            name, type, website, contact_name, contact_email, designation, verification_notes,
+            status, ip_address, created_at
+        ) VALUES (
+            'Aether Autonomous Robotics', 'COMPANY', 'https://aether-robotics.test',
+            'Dr. Vikram Sen', 'vikram.sen@aether-robotics.test', 'Chief Technology Officer',
+            'Corporate registration CIN-U72900KA2024PTC11892. Department of Science & Technology AI research partner.',
+            'PENDING', '127.0.0.1', ?
+        )
+    ");
+    $orgReqStmt->execute([$now - 7200]);
 
     $pdo->commit();
 

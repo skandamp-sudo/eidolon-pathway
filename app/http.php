@@ -7,6 +7,7 @@ require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/evidence/agent.php';
 require_once __DIR__ . '/employment/jobs.php';
 require_once __DIR__ . '/organizations/organization.php';
+require_once __DIR__ . '/auth/oauth.php';
 ini_set('display_errors', '0');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
@@ -48,13 +49,37 @@ try {
         '/company/jobs/edit' => ['GET', 'POST'],
         '/company/applicants' => ['GET'],
         '/company/applicants/status' => ['POST'],
+        '/company/talent' => ['GET'],
+        '/company/candidate' => ['GET'],
         '/college/login' => ['GET', 'POST'],
         '/college/dashboard' => ['GET'],
         '/college/students/view' => ['GET'],
+        '/college/affiliations' => ['GET'],
+        '/college/affiliations/review' => ['POST'],
+        '/college/affiliations/revoke' => ['POST'],
+        '/affiliation/request' => ['GET', 'POST'],
+        '/affiliation/cancel' => ['POST'],
+        '/privacy/settings' => ['GET', 'POST'],
+        '/privacy/access-log' => ['GET'],
+        '/achievements' => ['GET', 'POST'],
+        '/achievements/delete' => ['POST'],
         '/admin/login' => ['GET', 'POST'],
+        '/admin' => ['GET'],
         '/admin/dashboard' => ['GET'],
         '/admin/organizations/approve' => ['POST'],
         '/admin/organizations/suspend' => ['POST'],
+        '/admin/requests/review' => ['POST'],
+        '/admin/invitations/revoke' => ['POST'],
+        '/admin/invitations/create' => ['POST'],
+        '/request-access' => ['GET', 'POST'],
+        '/auth/login/google' => ['GET'],
+        '/auth/login/github' => ['GET'],
+        '/auth/login/linkedin' => ['GET'],
+        '/auth/callback/google' => ['GET'],
+        '/auth/callback/github' => ['GET'],
+        '/auth/callback/linkedin' => ['GET'],
+        '/auth/link' => ['POST'],
+        '/auth/unlink' => ['POST'],
         '/logout' => ['POST'],
         '/assets/pathway.css' => ['GET'],
     ];
@@ -371,6 +396,241 @@ try {
             header('Location: /admin/dashboard', true, 303);
             exit;
         }
+        if ($path === '/admin/requests/review') {
+            $admin = Organizations\current_platform_admin($pdo);
+            $requestId = (int) ($_POST['request_id'] ?? 0);
+            $decision = (string) ($_POST['decision'] ?? '');
+            $notes = (string) ($_POST['review_notes'] ?? '');
+            if ($requestId < 1) {
+                throw new HttpError(400, 'Request ID is required.');
+            }
+            try {
+                $res = Organizations\review_organization_request($pdo, (int) $admin['id'], $requestId, $decision, $notes);
+                if (($res['status'] ?? '') === 'APPROVED') {
+                    $token = $res['invitation']['raw_token'] ?? '';
+                    $_SESSION['flash'] = "Organization approved and activated! Setup invitation token generated: {$token}";
+                } else {
+                    $_SESSION['flash'] = 'Organization request rejected.';
+                }
+            } catch (Organizations\OrganizationError $e) {
+                $_SESSION['flash_error'] = match ($e->reason) {
+                    'request_not_found' => 'Request not found.',
+                    'request_not_pending' => 'Request is no longer pending.',
+                    default => 'Could not process organization request.',
+                };
+            }
+            header('Location: /admin/dashboard?tab=requests', true, 303);
+            exit;
+        }
+        if ($path === '/admin/invitations/revoke') {
+            $admin = Organizations\current_platform_admin($pdo);
+            $invId = (int) ($_POST['invitation_id'] ?? 0);
+            if ($invId < 1) {
+                throw new HttpError(400, 'Invitation ID is required.');
+            }
+            try {
+                Organizations\revoke_invitation($pdo, (int) $admin['id'], $invId);
+                $_SESSION['flash'] = 'Staff invitation has been revoked.';
+            } catch (Organizations\OrganizationError $e) {
+                $_SESSION['flash_error'] = match ($e->reason) {
+                    'invitation_not_found' => 'Invitation not found.',
+                    'invitation_already_used' => 'Invitation has already been consumed.',
+                    'invitation_already_revoked' => 'Invitation has already been revoked.',
+                    default => 'Could not revoke invitation.',
+                };
+            }
+            header('Location: /admin/dashboard?tab=invitations', true, 303);
+            exit;
+        }
+        if ($path === '/admin/invitations/create') {
+            $admin = Organizations\current_platform_admin($pdo);
+            $orgId = (int) ($_POST['organization_id'] ?? 0);
+            $email = (string) ($_POST['email'] ?? '');
+            $role = (string) ($_POST['role'] ?? 'STAFF');
+            if ($orgId < 1) {
+                throw new HttpError(400, 'Organization ID is required.');
+            }
+            try {
+                $inv = Organizations\create_invitation($pdo, (int) $admin['id'], $orgId, $email, $role);
+                $_SESSION['flash'] = "Staff invitation issued successfully! Invitation Token: {$inv['raw_token']}";
+            } catch (Organizations\OrganizationError $e) {
+                $_SESSION['flash_error'] = match ($e->reason) {
+                    'invalid_email' => 'Please provide a valid email address.',
+                    'invalid_role' => 'Invalid staff role specified.',
+                    'user_already_member' => 'This user is already an active member of this organization.',
+                    default => 'Could not create invitation.',
+                };
+            }
+            header('Location: /admin/dashboard?tab=invitations', true, 303);
+            exit;
+        }
+        if ($path === '/request-access') {
+            $clientIp = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+            try {
+                Organizations\submit_organization_request($pdo, $_POST, $clientIp);
+                $_SESSION['flash'] = 'Your institutional access request has been submitted. Our compliance team will review your organization credentials.';
+                header('Location: /request-access?submitted=1', true, 303);
+                exit;
+            } catch (Organizations\OrganizationError $e) {
+                $_SESSION['flash_error'] = match ($e->reason) {
+                    'invalid_organization_name' => 'Organization name must be between 2 and 120 characters.',
+                    'invalid_organization_type' => 'Please select COMPANY or COLLEGE.',
+                    'invalid_website_url' => 'Please enter a valid official website URL.',
+                    'invalid_contact_name' => 'Contact name must be between 2 and 100 characters.',
+                    'invalid_contact_email' => 'Please enter a valid institutional contact email.',
+                    'invalid_designation' => 'Designation/title must be between 2 and 100 characters.',
+                    'invalid_verification_notes' => 'Please provide verification details (between 5 and 2000 characters).',
+                    'request_already_pending' => 'A pending access request from this email address is already under review.',
+                    default => 'Could not submit request. Check input fields.',
+                };
+                header('Location: /request-access', true, 303);
+                exit;
+            }
+        }
+        if ($path === '/affiliation/request') {
+            $user = current_student($pdo);
+            $collegeOrgId = (int) ($_POST['college_org_id'] ?? 0);
+            try {
+                Employment\submit_affiliation_request($pdo, (int) $user['id'], $collegeOrgId, $_POST);
+                $_SESSION['flash'] = 'Affiliation request submitted successfully. Awaiting placement officer review.';
+            } catch (Employment\EmploymentError $e) {
+                $_SESSION['flash_error'] = match ($e->reason) {
+                    'active_college_required' => 'Please select a verified, active college.',
+                    'invalid_enrollment_number' => 'University enrollment / USN must be between 2 and 50 characters.',
+                    'invalid_degree' => 'Degree must be between 2 and 100 characters.',
+                    'invalid_department' => 'Department must be between 2 and 100 characters.',
+                    'invalid_graduation_year' => 'Graduation year must be between 2000 and 2100.',
+                    'verification_note_too_long' => 'Verification note cannot exceed 1000 characters.',
+                    'pending_affiliation_exists' => 'You already have a pending affiliation request for this institution.',
+                    default => 'Affiliation request could not be submitted. Check input fields.',
+                };
+            }
+            header('Location: /affiliation/request', true, 303);
+            exit;
+        }
+        if ($path === '/affiliation/cancel') {
+            $user = current_student($pdo);
+            $requestId = (int) ($_POST['request_id'] ?? 0);
+            try {
+                Employment\cancel_affiliation_request($pdo, (int) $user['id'], $requestId);
+                $_SESSION['flash'] = 'Affiliation request cancelled.';
+            } catch (Employment\EmploymentError $e) {
+                $_SESSION['flash_error'] = match ($e->reason) {
+                    'cannot_cancel_non_pending_request' => 'Only pending affiliation requests can be cancelled.',
+                    default => 'Affiliation request could not be cancelled.',
+                };
+            }
+            header('Location: /affiliation/request', true, 303);
+            exit;
+        }
+        if ($path === '/college/affiliations/review') {
+            $staff = Employment\current_college_staff($pdo);
+            $requestId = (int) ($_POST['request_id'] ?? 0);
+            $decision = (string) ($_POST['decision'] ?? '');
+            $reason = (string) ($_POST['reason'] ?? '');
+            try {
+                Employment\review_affiliation_request($pdo, (int) $staff['org']['org_id'], (int) $staff['user']['id'], $requestId, $decision, $reason);
+                $_SESSION['flash'] = 'Affiliation request ' . strtolower($decision) . ' successfully.';
+            } catch (Employment\EmploymentError $e) {
+                $_SESSION['flash_error'] = match ($e->reason) {
+                    'affiliation_already_reviewed' => 'This affiliation request has already been reviewed.',
+                    'decision_reason_required' => 'A review rationale (at least 3 characters) is required by audit policy.',
+                    'invalid_review_decision' => 'Decision must be APPROVED or REJECTED.',
+                    default => 'Could not review affiliation request.',
+                };
+            }
+            header('Location: /college/affiliations', true, 303);
+            exit;
+        }
+        if ($path === '/college/affiliations/revoke') {
+            $staff = Employment\current_college_staff($pdo);
+            $studentId = (int) ($_POST['student_id'] ?? 0);
+            $reason = (string) ($_POST['reason'] ?? '');
+            try {
+                Employment\revoke_affiliation($pdo, (int) $staff['org']['org_id'], (int) $staff['user']['id'], $studentId, $reason);
+                $_SESSION['flash'] = 'Student affiliation revoked successfully.';
+            } catch (Employment\EmploymentError $e) {
+                $_SESSION['flash_error'] = match ($e->reason) {
+                    'revocation_reason_required' => 'A revocation reason (at least 3 characters) is required for audit logs.',
+                    'student_not_affiliated_with_college' => 'Student is not affiliated with this college.',
+                    default => 'Could not revoke student affiliation.',
+                };
+            }
+            header('Location: /college/dashboard', true, 303);
+            exit;
+        }
+        if ($path === '/privacy/settings') {
+            $user = current_student($pdo);
+            try {
+                Employment\save_profile($pdo, (int) $user['id'], $_POST);
+                $_SESSION['flash'] = 'Sharing and privacy settings updated.';
+            } catch (Employment\EmploymentError $e) {
+                $_SESSION['flash_error'] = 'Could not update privacy settings.';
+            }
+            header('Location: /privacy/settings', true, 303);
+            exit;
+        }
+        if ($path === '/achievements') {
+            $user = current_student($pdo);
+            try {
+                Employment\create_achievement($pdo, (int) $user['id'], $_POST);
+                $_SESSION['flash'] = 'Achievement added successfully.';
+            } catch (Employment\EmploymentError $e) {
+                $_SESSION['flash_error'] = match ($e->reason) {
+                    'invalid_achievement_category' => 'Select a valid achievement category.',
+                    'invalid_achievement_title' => 'Title must be between 2 and 150 characters.',
+                    'issuer_too_long' => 'Issuer cannot exceed 150 characters.',
+                    'invalid_credential_url' => 'Please provide a valid URL for credential verification.',
+                    'description_too_long' => 'Description cannot exceed 1000 characters.',
+                    'invalid_evidence_assessment' => 'Selected GitHub assessment is invalid or not owned by you.',
+                    default => 'Achievement could not be saved. Check input fields.',
+                };
+            }
+            header('Location: /achievements', true, 303);
+            exit;
+        }
+        if ($path === '/achievements/delete') {
+            $user = current_student($pdo);
+            $achievementId = (int) ($_POST['id'] ?? 0);
+            try {
+                Employment\delete_achievement($pdo, (int) $user['id'], $achievementId);
+                $_SESSION['flash'] = 'Achievement removed.';
+            } catch (Employment\EmploymentError $e) {
+                $_SESSION['flash_error'] = 'Could not remove achievement.';
+            }
+            header('Location: /achievements', true, 303);
+            exit;
+        }
+        if ($path === '/auth/link') {
+            $userId = $_SESSION['user_id'] ?? null;
+            if (!is_int($userId) || $userId < 1) {
+                throw new HttpError(401, 'Sign in required to link an identity.');
+            }
+            $provider = field($_POST, 'provider', 32);
+            if (!in_array($provider, ['google', 'github', 'linkedin'], true)) {
+                throw new HttpError(400, 'Invalid provider.');
+            }
+            header('Location: /auth/login/' . $provider . '?link=1', true, 303);
+            exit;
+        }
+        if ($path === '/auth/unlink') {
+            $userId = $_SESSION['user_id'] ?? null;
+            if (!is_int($userId) || $userId < 1) {
+                throw new HttpError(401, 'Sign in required.');
+            }
+            $provider = field($_POST, 'provider', 32);
+            try {
+                Auth\unlink_identity($pdo, $userId, $provider);
+                $_SESSION['flash'] = ucfirst($provider) . ' identity unlinked successfully.';
+            } catch (Auth\OAuthError $e) {
+                $_SESSION['flash_error'] = match ($e->reason) {
+                    'cannot_unlink_sole_authentication_method' => 'Cannot unlink your sole sign-in method. Set a password or link another provider first.',
+                    default => 'Failed to unlink identity: ' . $e->reason,
+                };
+            }
+            header('Location: /privacy/settings', true, 303);
+            exit;
+        }
         if ($path === '/register') {
             register_student($pdo, $_POST);
             $_SESSION['flash'] = 'Your local account is ready. Sign in to continue.';
@@ -395,6 +655,10 @@ try {
     if ($path === '/dashboard') {
         $user = current_student($pdo);
         $assessments = Evidence\history($pdo, (int) $user['id']);
+        $applications = Employment\list_student_applications($pdo, (int) $user['id']);
+        $allResumes = Employment\list_resumes($pdo, (int) $user['id']);
+        $profile = Employment\get_profile($pdo, (int) $user['id']);
+        $achievements = Employment\list_student_achievements($pdo, (int) $user['id']);
         $screen = 'dashboard';
     } elseif ($path === '/profile') {
         $user = current_student($pdo);
@@ -452,6 +716,7 @@ try {
         ));
         $allResumes = Employment\list_resumes($pdo, (int) $user['id']);
         $profile = Employment\get_profile($pdo, (int) $user['id']);
+        $atsAnalysis = $resume !== null ? Employment\analyze_resume_for_ats($resume) : null;
         $screen = 'resume';
     } elseif ($path === '/resume/preview') {
         $user = current_student($pdo);
@@ -465,6 +730,10 @@ try {
         if (!$resume) {
             throw new HttpError(404, 'Resume not found or access denied.');
         }
+        $targetJobId = (int) ($query['job_id'] ?? 0);
+        $targetJob = $targetJobId > 0 ? Employment\get_job($pdo, $targetJobId) : null;
+        $activeJobs = Employment\list_active_jobs($pdo);
+        $atsAnalysis = Employment\analyze_resume_for_ats($resume, $targetJob);
         $screen = 'resume_preview';
     } elseif ($path === '/assess') {
         $user = current_student($pdo);
@@ -484,6 +753,7 @@ try {
         $user = $staff['user'];
         $org = $staff['org'];
         $jobs = Employment\list_company_jobs($pdo, (int) $user['id'], (int) $org['org_id']);
+        $allApplicants = Employment\list_company_applications($pdo, (int) $user['id'], (int) $org['org_id']);
         $screen = 'company_dashboard';
     } elseif ($path === '/company/jobs/new') {
         $staff = Employment\current_company_staff($pdo);
@@ -523,11 +793,38 @@ try {
         $jobs = Employment\list_company_jobs($pdo, (int) $user['id'], (int) $org['org_id']);
         $selectedJobId = $jobId;
         $screen = 'company_applicants';
+    } elseif ($path === '/company/talent') {
+        $staff = Employment\current_company_staff($pdo);
+        $user = $staff['user'];
+        $org = $staff['org'];
+        $query = [];
+        parse_str(parse_url($uri, PHP_URL_QUERY) ?? '', $query);
+        $skillsQuery = !empty($query['q']) ? trim((string) $query['q']) : null;
+        $talentList = Employment\list_opted_in_talent($pdo, (int) $user['id'], (int) $org['org_id'], $skillsQuery);
+        $searchQuery = $skillsQuery ?? '';
+        $screen = 'company_talent';
+    } elseif ($path === '/company/candidate') {
+        $staff = Employment\current_company_staff($pdo);
+        $user = $staff['user'];
+        $org = $staff['org'];
+        $query = [];
+        parse_str(parse_url($uri, PHP_URL_QUERY) ?? '', $query);
+        $appId = (int) ($query['id'] ?? 0);
+        if ($appId < 1) {
+            throw new HttpError(400, 'Application ID is required.');
+        }
+        try {
+            $candidateBundle = Employment\get_candidate_for_recruiter($pdo, $appId, (int) $user['id'], (int) $org['org_id']);
+        } catch (Employment\EmploymentError $e) {
+            throw new HttpError(404, 'Candidate application not found or access denied.');
+        }
+        $screen = 'company_candidate';
     } elseif ($path === '/college/dashboard') {
         $staff = Employment\current_college_staff($pdo);
         $user = $staff['user'];
         $org = $staff['org'];
         $students = Employment\list_college_students($pdo, (int) $org['org_id'], (int) $user['id']);
+        $pendingAffiliations = Employment\list_college_affiliation_requests($pdo, (int) $org['org_id'], (int) $user['id'], 'PENDING');
         $screen = 'college_dashboard';
     } elseif ($path === '/college/students/view') {
         $staff = Employment\current_college_staff($pdo);
@@ -548,24 +845,167 @@ try {
             throw new HttpError(404, 'Student not found in your college roster.');
         }
         $screen = 'college_student_detail';
+    } elseif ($path === '/college/affiliations') {
+        $staff = Employment\current_college_staff($pdo);
+        $user = $staff['user'];
+        $org = $staff['org'];
+        $query = [];
+        parse_str(parse_url($uri, PHP_URL_QUERY) ?? '', $query);
+        $statusFilter = !empty($query['status']) ? (string) $query['status'] : null;
+        $requests = Employment\list_college_affiliation_requests($pdo, (int) $org['org_id'], (int) $user['id'], $statusFilter);
+        $selectedStatus = $statusFilter ?? 'all';
+        $screen = 'college_affiliations';
+    } elseif ($path === '/affiliation/request') {
+        $user = current_student($pdo);
+        $approvedColleges = Employment\list_approved_colleges($pdo);
+        $affiliationRequests = Employment\list_student_affiliation_requests($pdo, (int) $user['id']);
+        $profile = Employment\get_profile($pdo, (int) $user['id']);
+        $screen = 'affiliation_request';
+    } elseif ($path === '/privacy/settings') {
+        $user = current_student($pdo);
+        $profile = Employment\get_profile($pdo, (int) $user['id']);
+        $recentLogs = Employment\list_student_access_logs($pdo, (int) $user['id'], 15);
+        $linkedIdentities = Auth\list_user_identities($pdo, (int) $user['id']);
+        $configuredProviders = Auth\get_configured_providers();
+        $screen = 'privacy_settings';
+    } elseif ($path === '/privacy/access-log') {
+        $user = current_student($pdo);
+        $accessLogs = Employment\list_student_access_logs($pdo, (int) $user['id'], 100);
+        $screen = 'privacy_access_log';
+    } elseif ($path === '/achievements') {
+        $user = current_student($pdo);
+        $achievements = Employment\list_student_achievements($pdo, (int) $user['id']);
+        $assessments = array_values(array_filter(
+            Evidence\history($pdo, (int) $user['id']),
+            fn($a) => ($a['state'] ?? '') === 'completed'
+        ));
+        $screen = 'achievements';
+    } elseif ($path === '/admin') {
+        header('Location: /admin/dashboard', true, 303);
+        exit;
     } elseif ($path === '/admin/dashboard') {
         $admin = Organizations\current_platform_admin($pdo);
         $user = $admin;
+        $activeTab = (string) ($_GET['tab'] ?? 'overview');
+        $validTabs = ['overview', 'requests', 'orgs', 'users', 'invitations', 'access_reviews', 'audit', 'security'];
+        if (!in_array($activeTab, $validTabs, true)) {
+            $activeTab = 'overview';
+        }
+        $metrics = Organizations\get_admin_system_metrics($pdo);
+        $pendingRequests = Organizations\list_organization_requests($pdo, 'PENDING');
+        $allRequests = Organizations\list_organization_requests($pdo, null, 50);
         $pendingOrgs = Organizations\list_organizations($pdo, 'PENDING');
         $activeOrgs = Organizations\list_organizations($pdo, 'ACTIVE');
         $suspendedOrgs = Organizations\list_organizations($pdo, 'SUSPENDED');
-        $auditLogs = Organizations\list_audit_logs($pdo, 25);
+        $allOrgs = Organizations\list_organizations($pdo, null, 100);
+        $invitations = Organizations\list_all_invitations($pdo, null, 100);
+        $usersList = Organizations\list_all_users($pdo, $_GET['user_role'] ?? null, $_GET['user_search'] ?? null, 100);
+        $accessReviews = Organizations\list_all_access_logs($pdo, 50);
+        $auditLogs = Organizations\list_audit_logs($pdo, 50);
         $screen = 'admin_dashboard';
+    } elseif (str_starts_with($path, '/auth/login/')) {
+        $provider = substr($path, strlen('/auth/login/'));
+        if (!in_array($provider, ['google', 'github', 'linkedin'], true)) {
+            throw new HttpError(404, 'Provider not supported.');
+        }
+        if (!Auth\is_provider_configured($provider)) {
+            $_SESSION['flash_error'] = ucfirst($provider) . ' sign-in is not configured. Set ' . strtoupper($provider) . '_CLIENT_ID in the environment to enable.';
+            header('Location: /login', true, 303);
+            exit;
+        }
+        $role = $_GET['role'] ?? 'student';
+        if (!in_array($role, ['student', 'company', 'college'], true)) {
+            $role = 'student';
+        }
+        $linkingUserId = null;
+        if (!empty($_GET['link']) && isset($_SESSION['user_id'])) {
+            $linkingUserId = (int) $_SESSION['user_id'];
+        }
+        try {
+            $authUrl = Auth\initiate_oauth_flow($pdo, $provider, $role, $linkingUserId);
+            header('Location: ' . $authUrl, true, 303);
+            exit;
+        } catch (\Throwable $e) {
+            $_SESSION['flash_error'] = 'Failed to initiate social sign-in: ' . $e->getMessage();
+            header('Location: /login', true, 303);
+            exit;
+        }
+    } elseif (str_starts_with($path, '/auth/callback/')) {
+        $provider = substr($path, strlen('/auth/callback/'));
+        if (!in_array($provider, ['google', 'github', 'linkedin'], true)) {
+            throw new HttpError(404, 'Provider not supported.');
+        }
+        $state = $_GET['state'] ?? null;
+        $code = $_GET['code'] ?? null;
+        $oauthError = $_GET['error'] ?? null;
+
+        if ($oauthError !== null) {
+            $_SESSION['flash_error'] = 'Social sign-in was cancelled or denied: ' . htmlspecialchars((string) $oauthError, ENT_QUOTES, 'UTF-8');
+            header('Location: /login', true, 303);
+            exit;
+        }
+
+        if (!is_string($state) || !is_string($code) || trim($state) === '' || trim($code) === '') {
+            $_SESSION['flash_error'] = 'Invalid OAuth callback parameters.';
+            header('Location: /login', true, 303);
+            exit;
+        }
+
+        try {
+            $authResult = Auth\handle_oauth_callback($pdo, $provider, $state, $code);
+            if (!session_regenerate_id(true)) {
+                throw new \RuntimeException('Session rotation failed.');
+            }
+            $_SESSION['user_id'] = (int) $authResult['user']['id'];
+            $_SESSION['role'] = $authResult['user']['role'];
+            $_SESSION['last_seen'] = time();
+
+            if (!empty($authResult['linked'])) {
+                $_SESSION['flash'] = 'Successfully linked your ' . ucfirst($provider) . ' account.';
+                header('Location: /privacy/settings', true, 303);
+                exit;
+            }
+
+            if (!empty($authResult['is_new'])) {
+                $_SESSION['flash'] = 'Welcome to EIDOLON PATHWAY! Your account was securely provisioned via ' . ucfirst($provider) . '.';
+            } else {
+                $_SESSION['flash'] = 'Signed in successfully via ' . ucfirst($provider) . '.';
+            }
+
+            $target = match ($_SESSION['role']) {
+                'company' => '/company/dashboard',
+                'college' => '/college/dashboard',
+                'admin' => '/admin/dashboard',
+                default => '/dashboard',
+            };
+            header('Location: ' . $target, true, 303);
+            exit;
+        } catch (Auth\OAuthError $e) {
+            if ($e->reason === 'account_linking_required') {
+                $_SESSION['flash_error'] = 'An account with this email address already exists. Sign in with your password and link your ' . ucfirst($provider) . ' identity in settings.';
+            } else {
+                $_SESSION['flash_error'] = 'Authentication failed: ' . $e->reason;
+            }
+            header('Location: /login', true, 303);
+            exit;
+        } catch (\Throwable $e) {
+            $_SESSION['flash_error'] = 'Social sign-in could not be completed.';
+            header('Location: /login', true, 303);
+            exit;
+        }
     } else {
         $screen = match ($path) {
             '/register' => 'register',
+            '/request-access' => 'request_access',
             '/company/login' => 'company_login',
             '/college/login' => 'college_login',
             '/admin/login' => 'admin_login',
             default => 'login',
         };
         $flash = $_SESSION['flash'] ?? null;
-        unset($_SESSION['flash']);
+        $flashError = $_SESSION['flash_error'] ?? null;
+        unset($_SESSION['flash'], $_SESSION['flash_error']);
+        $configuredProviders = Auth\get_configured_providers();
     }
 } catch (HttpError $error) {
     http_response_code($error->status);

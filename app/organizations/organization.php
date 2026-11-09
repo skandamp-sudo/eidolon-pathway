@@ -208,7 +208,10 @@ function create_organization(
     $suffix = 1;
 
     $now = time();
-    $pdo->exec('BEGIN IMMEDIATE');
+    $inTx = $pdo->inTransaction();
+    if (!$inTx) {
+        $pdo->exec('BEGIN IMMEDIATE');
+    }
     try {
         // Ensure slug uniqueness
         while (true) {
@@ -241,10 +244,14 @@ function create_organization(
             'slug' => $slug,
         ]);
 
-        $pdo->exec('COMMIT');
+        if (!$inTx) {
+            $pdo->exec('COMMIT');
+        }
         return $orgId;
     } catch (\Throwable $error) {
-        $pdo->exec('ROLLBACK');
+        if (!$inTx) {
+            $pdo->exec('ROLLBACK');
+        }
         throw $error;
     }
 }
@@ -361,7 +368,10 @@ function create_invitation(
     $now = time();
     $expiresAt = $now + max(300, min(604800, $ttlSeconds)); // between 5m and 7d
 
-    $pdo->exec('BEGIN IMMEDIATE');
+    $inTx = $pdo->inTransaction();
+    if (!$inTx) {
+        $pdo->exec('BEGIN IMMEDIATE');
+    }
     try {
         // Expire any existing pending invitations for this email & org
         $stmt = $pdo->prepare(
@@ -383,7 +393,9 @@ function create_invitation(
             'expires_at' => $expiresAt,
         ]);
 
-        $pdo->exec('COMMIT');
+        if (!$inTx) {
+            $pdo->exec('COMMIT');
+        }
 
         return [
             'invitation_id' => $invitationId,
@@ -395,7 +407,9 @@ function create_invitation(
             'expires_at' => $expiresAt,
         ];
     } catch (\Throwable $error) {
-        $pdo->exec('ROLLBACK');
+        if (!$inTx) {
+            $pdo->exec('ROLLBACK');
+        }
         throw $error;
     }
 }
@@ -414,7 +428,7 @@ function accept_invitation(\PDO $pdo, string $rawToken, int $userId, ?string $pa
     $pdo->exec('BEGIN IMMEDIATE');
     try {
         $stmt = $pdo->prepare(
-            'SELECT i.id, i.organization_id, i.email, i.role, i.expires_at, i.used_at, o.status AS org_status
+            'SELECT i.id, i.organization_id, i.email, i.role, i.expires_at, i.used_at, i.revoked_at, o.status AS org_status
              FROM organization_invitations i
              JOIN organizations o ON o.id = i.organization_id
              WHERE i.token_hash = ?'
@@ -428,6 +442,10 @@ function accept_invitation(\PDO $pdo, string $rawToken, int $userId, ?string $pa
 
         if ($invitation['used_at'] !== null) {
             throw new OrganizationError('invitation_already_used', 410);
+        }
+
+        if (isset($invitation['revoked_at']) && $invitation['revoked_at'] !== null) {
+            throw new OrganizationError('invitation_revoked', 410);
         }
 
         if ($invitation['expires_at'] < $now) {
@@ -510,7 +528,7 @@ function register_and_accept_invitation(
     $pdo->exec('BEGIN IMMEDIATE');
     try {
         $stmt = $pdo->prepare(
-            'SELECT i.id, i.organization_id, i.email, i.role, i.expires_at, i.used_at, o.status AS org_status, o.type AS org_type
+            'SELECT i.id, i.organization_id, i.email, i.role, i.expires_at, i.used_at, i.revoked_at, o.status AS org_status, o.type AS org_type
              FROM organization_invitations i
              JOIN organizations o ON o.id = i.organization_id
              WHERE i.token_hash = ?'
@@ -524,6 +542,10 @@ function register_and_accept_invitation(
 
         if ($invitation['used_at'] !== null) {
             throw new OrganizationError('invitation_already_used', 410);
+        }
+
+        if (isset($invitation['revoked_at']) && $invitation['revoked_at'] !== null) {
+            throw new OrganizationError('invitation_revoked', 410);
         }
 
         if ($invitation['expires_at'] < $now) {
@@ -647,4 +669,396 @@ function list_audit_logs(\PDO $pdo, int $limit = 50): array
     $stmt->execute([max(1, min(200, $limit))]);
     return $stmt->fetchAll();
 }
+
+/**
+ * Revoke an active, unused staff invitation.
+ */
+function revoke_invitation(\PDO $pdo, int $actorUserId, int $invitationId): void
+{
+    $systemRole = get_system_role($pdo, $actorUserId);
+    $isPlatformAdmin = ($systemRole === 'admin');
+
+    $stmt = $pdo->prepare(
+        'SELECT i.id, i.organization_id, i.email, i.used_at, i.revoked_at, o.name AS org_name
+         FROM organization_invitations i
+         JOIN organizations o ON o.id = i.organization_id
+         WHERE i.id = ?'
+    );
+    $stmt->execute([$invitationId]);
+    $inv = $stmt->fetch();
+    if (!$inv) {
+        throw new OrganizationError('invitation_not_found', 404);
+    }
+    if ($inv['used_at'] !== null) {
+        throw new OrganizationError('invitation_already_used', 409);
+    }
+    if ($inv['revoked_at'] !== null) {
+        throw new OrganizationError('invitation_already_revoked', 409);
+    }
+
+    if (!$isPlatformAdmin) {
+        require_permission($pdo, $actorUserId, 'perm.org.invite', (int) $inv['organization_id']);
+    }
+
+    $now = time();
+    $stmt = $pdo->prepare('UPDATE organization_invitations SET revoked_at = ? WHERE id = ?');
+    $stmt->execute([$now, $invitationId]);
+
+    record_audit($pdo, $actorUserId, 'org.invitation_revoked', 'invitation', $invitationId, [
+        'organization_id' => (int) $inv['organization_id'],
+        'email' => $inv['email'],
+    ]);
+}
+
+/**
+ * Submit a self-service organization access request (Company or College).
+ */
+function submit_organization_request(\PDO $pdo, array $input, string $ipAddress = '127.0.0.1'): int
+{
+    $name = trim((string) ($input['name'] ?? ''));
+    if (strlen($name) < 2 || strlen($name) > 120) {
+        throw new OrganizationError('invalid_organization_name', 422);
+    }
+
+    $type = strtoupper(trim((string) ($input['type'] ?? '')));
+    if (!in_array($type, ['COMPANY', 'COLLEGE'], true)) {
+        throw new OrganizationError('invalid_organization_type', 422);
+    }
+
+    $website = trim((string) ($input['website'] ?? ''));
+    if (!str_starts_with($website, 'http://') && !str_starts_with($website, 'https://')) {
+        $website = 'https://' . $website;
+    }
+    if (strlen($website) < 4 || strlen($website) > 200 || !filter_var($website, FILTER_VALIDATE_URL)) {
+        throw new OrganizationError('invalid_website_url', 422);
+    }
+
+    $contactName = trim((string) ($input['contact_name'] ?? ''));
+    if (strlen($contactName) < 2 || strlen($contactName) > 100) {
+        throw new OrganizationError('invalid_contact_name', 422);
+    }
+
+    $contactEmail = strtolower(trim((string) ($input['contact_email'] ?? '')));
+    if (!filter_var($contactEmail, FILTER_VALIDATE_EMAIL) || strlen($contactEmail) > 254) {
+        throw new OrganizationError('invalid_contact_email', 422);
+    }
+
+    $designation = trim((string) ($input['designation'] ?? ''));
+    if (strlen($designation) < 2 || strlen($designation) > 100) {
+        throw new OrganizationError('invalid_designation', 422);
+    }
+
+    $verificationNotes = trim((string) ($input['verification_notes'] ?? ''));
+    if (strlen($verificationNotes) < 5 || strlen($verificationNotes) > 2000) {
+        throw new OrganizationError('invalid_verification_notes', 422);
+    }
+
+    // Flood control: check if an unreviewed request already exists for this email
+    $stmt = $pdo->prepare('SELECT id FROM organization_requests WHERE contact_email = ? AND status = "PENDING"');
+    $stmt->execute([$contactEmail]);
+    if ($stmt->fetch()) {
+        throw new OrganizationError('request_already_pending', 409);
+    }
+
+    $now = time();
+    $stmt = $pdo->prepare(
+        'INSERT INTO organization_requests (
+            name, type, website, contact_name, contact_email, designation, verification_notes,
+            status, ip_address, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, "PENDING", ?, ?)'
+    );
+    $stmt->execute([
+        $name, $type, $website, $contactName, $contactEmail, $designation, $verificationNotes,
+        $ipAddress, $now
+    ]);
+    $requestId = (int) $pdo->lastInsertId();
+
+    record_audit($pdo, null, 'org_request.submit', 'organization_request', $requestId, [
+        'name' => $name,
+        'type' => $type,
+        'contact_email' => $contactEmail,
+        'website' => $website,
+    ], $ipAddress);
+
+    return $requestId;
+}
+
+/**
+ * Retrieve a single organization request by ID.
+ */
+function get_organization_request(\PDO $pdo, int $id): ?array
+{
+    $stmt = $pdo->prepare('
+        SELECT r.*, u.name AS reviewer_name, u.email AS reviewer_email, o.name AS created_org_name
+        FROM organization_requests r
+        LEFT JOIN users u ON u.id = r.reviewed_by_user_id
+        LEFT JOIN organizations o ON o.id = r.organization_id
+        WHERE r.id = ?
+    ');
+    $stmt->execute([$id]);
+    $row = $stmt->fetch();
+    return is_array($row) ? $row : null;
+}
+
+/**
+ * List organization access requests.
+ */
+function list_organization_requests(\PDO $pdo, ?string $status = null, int $limit = 50): array
+{
+    $sql = 'SELECT r.*, u.name AS reviewer_name, u.email AS reviewer_email, o.name AS created_org_name
+            FROM organization_requests r
+            LEFT JOIN users u ON u.id = r.reviewed_by_user_id
+            LEFT JOIN organizations o ON o.id = r.organization_id';
+    $params = [];
+    if ($status !== null) {
+        $sql .= ' WHERE r.status = ?';
+        $params[] = $status;
+    }
+    $sql .= ' ORDER BY r.id DESC LIMIT ?';
+    $params[] = max(1, min(200, $limit));
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll();
+}
+
+/**
+ * Review an organization request (Approve or Reject with auditable reason).
+ * Platform Administrator only.
+ */
+function review_organization_request(
+    \PDO $pdo,
+    int $adminUserId,
+    int $requestId,
+    string $decision,
+    ?string $notes = null
+): array {
+    require_permission($pdo, $adminUserId, 'perm.org.approve');
+
+    $decisionUpper = strtoupper(trim($decision));
+    if (!in_array($decisionUpper, ['APPROVE', 'REJECT'], true)) {
+        throw new OrganizationError('invalid_decision', 422);
+    }
+
+    $now = time();
+    $trimmedNotes = $notes !== null ? trim($notes) : null;
+    if ($trimmedNotes !== null && strlen($trimmedNotes) > 2000) {
+        $trimmedNotes = substr($trimmedNotes, 0, 2000);
+    }
+
+    $pdo->exec('BEGIN IMMEDIATE');
+    try {
+        $stmt = $pdo->prepare('SELECT * FROM organization_requests WHERE id = ?');
+        $stmt->execute([$requestId]);
+        $req = $stmt->fetch();
+        if (!$req) {
+            throw new OrganizationError('request_not_found', 404);
+        }
+        if ($req['status'] !== 'PENDING') {
+            throw new OrganizationError('request_not_pending', 409);
+        }
+
+        if ($decisionUpper === 'APPROVE') {
+            // 1. Create the active organization
+            $orgId = create_organization($pdo, $adminUserId, $req['name'], $req['type'], true);
+
+            // 2. Issue a secure 7-day invitation for the applicant contact as OWNER
+            $invitation = create_invitation($pdo, $adminUserId, $orgId, $req['contact_email'], 'OWNER', 604800);
+
+            // 3. Update the request status
+            $stmt = $pdo->prepare('
+                UPDATE organization_requests
+                SET status = "APPROVED", organization_id = ?, reviewed_by_user_id = ?, review_notes = ?, reviewed_at = ?
+                WHERE id = ?
+            ');
+            $stmt->execute([$orgId, $adminUserId, $trimmedNotes, $now, $requestId]);
+
+            record_audit($pdo, $adminUserId, 'org_request.approve', 'organization_request', $requestId, [
+                'organization_id' => $orgId,
+                'name' => $req['name'],
+                'type' => $req['type'],
+                'invited_email' => $req['contact_email'],
+                'notes' => $trimmedNotes,
+            ]);
+
+            $pdo->exec('COMMIT');
+
+            return [
+                'status' => 'APPROVED',
+                'organization_id' => $orgId,
+                'invitation' => $invitation,
+            ];
+        } else {
+            // REJECT
+            $stmt = $pdo->prepare('
+                UPDATE organization_requests
+                SET status = "REJECTED", reviewed_by_user_id = ?, review_notes = ?, reviewed_at = ?
+                WHERE id = ?
+            ');
+            $stmt->execute([$adminUserId, $trimmedNotes, $now, $requestId]);
+
+            record_audit($pdo, $adminUserId, 'org_request.reject', 'organization_request', $requestId, [
+                'name' => $req['name'],
+                'type' => $req['type'],
+                'contact_email' => $req['contact_email'],
+                'notes' => $trimmedNotes,
+            ]);
+
+            $pdo->exec('COMMIT');
+
+            return [
+                'status' => 'REJECTED',
+            ];
+        }
+    } catch (\Throwable $error) {
+        $pdo->exec('ROLLBACK');
+        throw $error;
+    }
+}
+
+/**
+ * List all invitations with calculated state (PENDING, USED, REVOKED, EXPIRED).
+ */
+function list_all_invitations(\PDO $pdo, ?int $orgId = null, int $limit = 50): array
+{
+    $sql = "
+        SELECT i.id, i.organization_id, i.email, i.role, i.token_hash, i.expires_at, i.used_at, i.revoked_at, i.created_at,
+               o.name AS org_name, o.type AS org_type, o.status AS org_status,
+               u.name AS inviter_name, u.email AS inviter_email
+        FROM organization_invitations i
+        JOIN organizations o ON o.id = i.organization_id
+        LEFT JOIN users u ON u.id = i.invited_by_user_id
+    ";
+    $params = [];
+    if ($orgId !== null) {
+        $sql .= " WHERE i.organization_id = ?";
+        $params[] = $orgId;
+    }
+    $sql .= " ORDER BY i.id DESC LIMIT ?";
+    $params[] = max(1, min(200, $limit));
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll();
+
+    $now = time();
+    foreach ($rows as &$row) {
+        if ($row['used_at'] !== null) {
+            $row['state'] = 'USED';
+        } elseif (isset($row['revoked_at']) && $row['revoked_at'] !== null) {
+            $row['state'] = 'REVOKED';
+        } elseif ($row['expires_at'] < $now) {
+            $row['state'] = 'EXPIRED';
+        } else {
+            $row['state'] = 'PENDING';
+        }
+    }
+    unset($row);
+    return $rows;
+}
+
+/**
+ * List users across the system for administrator user governance.
+ */
+function list_all_users(\PDO $pdo, ?string $role = null, ?string $search = null, int $limit = 50): array
+{
+    $sql = "
+        SELECT u.id, u.name, u.email, u.role, u.created_at,
+               (SELECT count(*) FROM organization_memberships m WHERE m.user_id = u.id AND m.status = 'ACTIVE') AS active_memberships_count
+        FROM users u
+    ";
+    $clauses = [];
+    $params = [];
+    if ($role !== null && $role !== '') {
+        $clauses[] = "u.role = ?";
+        $params[] = $role;
+    }
+    if ($search !== null && trim($search) !== '') {
+        $clauses[] = "(u.name LIKE ? OR u.email LIKE ?)";
+        $term = '%' . trim($search) . '%';
+        $params[] = $term;
+        $params[] = $term;
+    }
+    if (!empty($clauses)) {
+        $sql .= " WHERE " . implode(" AND ", $clauses);
+    }
+    $sql .= " ORDER BY u.id DESC LIMIT ?";
+    $params[] = max(1, min(200, $limit));
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll();
+}
+
+/**
+ * List staff members for a specific organization.
+ */
+function list_organization_members(\PDO $pdo, int $orgId): array
+{
+    $stmt = $pdo->prepare("
+        SELECT m.id, m.organization_id, m.user_id, m.role, m.status, m.created_at, m.updated_at,
+               u.name, u.email, u.role AS user_system_role
+        FROM organization_memberships m
+        JOIN users u ON u.id = m.user_id
+        WHERE m.organization_id = ?
+        ORDER BY CASE m.role WHEN 'OWNER' THEN 1 WHEN 'ADMIN' THEN 2 WHEN 'STAFF' THEN 3 ELSE 4 END, m.id ASC
+    ");
+    $stmt->execute([$orgId]);
+    return $stmt->fetchAll();
+}
+
+/**
+ * Comprehensive system health and capacity metrics for EIDOLON CONTROL.
+ */
+function get_admin_system_metrics(\PDO $pdo): array
+{
+    $pendingRequests = (int) $pdo->query("SELECT count(*) FROM organization_requests WHERE status = 'PENDING'")->fetchColumn();
+    $pendingOrgs = (int) $pdo->query("SELECT count(*) FROM organizations WHERE status = 'PENDING'")->fetchColumn();
+    $activeCompanies = (int) $pdo->query("SELECT count(*) FROM organizations WHERE type = 'COMPANY' AND status = 'ACTIVE'")->fetchColumn();
+    $activeColleges = (int) $pdo->query("SELECT count(*) FROM organizations WHERE type = 'COLLEGE' AND status = 'ACTIVE'")->fetchColumn();
+    $totalStudents = (int) $pdo->query("SELECT count(*) FROM users WHERE role = 'student'")->fetchColumn();
+    $activeAffiliations = (int) $pdo->query("SELECT count(*) FROM student_profiles WHERE affiliation_status = 'AFFILIATED'")->fetchColumn();
+    $totalJobs = (int) $pdo->query("SELECT count(*) FROM jobs")->fetchColumn();
+    $totalApplications = (int) $pdo->query("SELECT count(*) FROM applications")->fetchColumn();
+    $totalAuditEvents = (int) $pdo->query("SELECT count(*) FROM admin_audit_log")->fetchColumn();
+    $totalSensitiveAccesses = (int) $pdo->query("SELECT count(*) FROM sensitive_record_access_logs")->fetchColumn();
+    $now = time();
+    $activeInvitations = (int) $pdo->query("SELECT count(*) FROM organization_invitations WHERE used_at IS NULL AND (revoked_at IS NULL) AND expires_at > {$now}")->fetchColumn();
+
+    return [
+        'pending_requests' => $pendingRequests,
+        'pending_orgs' => $pendingOrgs,
+        'active_companies' => $activeCompanies,
+        'active_colleges' => $activeColleges,
+        'total_students' => $totalStudents,
+        'active_affiliations' => $activeAffiliations,
+        'total_jobs' => $totalJobs,
+        'total_applications' => $totalApplications,
+        'total_audit_events' => $totalAuditEvents,
+        'total_sensitive_accesses' => $totalSensitiveAccesses,
+        'active_invitations' => $activeInvitations,
+    ];
+}
+
+/**
+ * List all sensitive record access logs for compliance access review.
+ */
+function list_all_access_logs(\PDO $pdo, int $limit = 50): array
+{
+    $stmt = $pdo->prepare("
+        SELECT l.*,
+               a.name AS accessor_name, a.email AS accessor_email, a.role AS accessor_role,
+               s.name AS student_name, s.email AS student_email,
+               o.name AS accessor_org_name
+        FROM sensitive_record_access_logs l
+        LEFT JOIN users a ON a.id = l.accessor_user_id
+        LEFT JOIN users s ON s.id = l.student_id
+        LEFT JOIN organizations o ON o.id = l.accessor_org_id
+        ORDER BY l.id DESC
+        LIMIT ?
+    ");
+    $stmt->execute([max(1, min(200, $limit))]);
+    return $stmt->fetchAll();
+}
+
 

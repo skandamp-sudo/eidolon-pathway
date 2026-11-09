@@ -5,6 +5,8 @@ namespace Pathway\Employment;
 
 require_once __DIR__ . '/../bootstrap.php';
 require_once __DIR__ . '/../organizations/organization.php';
+require_once __DIR__ . '/affiliation.php';
+require_once __DIR__ . '/resume_intelligence.php';
 
 use Pathway\HttpError;
 use Pathway\Organizations;
@@ -26,6 +28,10 @@ function get_profile(\PDO $pdo, int $userId): ?array
         SELECT p.user_id, u.name, u.email, u.role,
                p.college, p.skills, p.bio, p.github_username,
                p.college_org_id, p.college_share_consent, p.updated_at,
+               p.share_contact_details, p.share_resume, p.share_achievements,
+               p.share_applications, p.talent_discovery_opt_in,
+               p.enrollment_number, p.degree, p.department, p.graduation_year,
+               p.affiliation_status,
                o.name AS college_org_name
         FROM student_profiles p
         JOIN users u ON u.id = p.user_id
@@ -75,6 +81,7 @@ function save_profile(\PDO $pdo, int $userId, array $data): array
     }
 
     $collegeOrgId = $existing['college_org_id'] ?? null;
+    $affiliationStatus = $existing['affiliation_status'] ?? 'NONE';
     if (array_key_exists('college_org_id', $data)) {
         if (!empty($data['college_org_id'])) {
             $orgId = (int) $data['college_org_id'];
@@ -84,8 +91,12 @@ function save_profile(\PDO $pdo, int $userId, array $data): array
                 throw new EmploymentError('invalid_college_organization', 422);
             }
             $collegeOrgId = $orgId;
+            if ($affiliationStatus === 'NONE') {
+                $affiliationStatus = 'AFFILIATED';
+            }
         } else {
             $collegeOrgId = null;
+            $affiliationStatus = 'NONE';
         }
     }
 
@@ -95,14 +106,78 @@ function save_profile(\PDO $pdo, int $userId, array $data): array
         $consent = ($val === 1 || $val === '1' || $val === true || $val === 'on') ? 1 : 0;
     }
 
+    $shareContact = (int) ($existing['share_contact_details'] ?? 1);
+    if (array_key_exists('share_contact_details', $data)) {
+        $val = $data['share_contact_details'];
+        $shareContact = ($val === 1 || $val === '1' || $val === true || $val === 'on') ? 1 : 0;
+    }
+
+    $shareResume = (int) ($existing['share_resume'] ?? 1);
+    if (array_key_exists('share_resume', $data)) {
+        $val = $data['share_resume'];
+        $shareResume = ($val === 1 || $val === '1' || $val === true || $val === 'on') ? 1 : 0;
+    }
+
+    $shareAchievements = (int) ($existing['share_achievements'] ?? 1);
+    if (array_key_exists('share_achievements', $data)) {
+        $val = $data['share_achievements'];
+        $shareAchievements = ($val === 1 || $val === '1' || $val === true || $val === 'on') ? 1 : 0;
+    }
+
+    $shareApplications = (int) ($existing['share_applications'] ?? 1);
+    if (array_key_exists('share_applications', $data)) {
+        $val = $data['share_applications'];
+        $shareApplications = ($val === 1 || $val === '1' || $val === true || $val === 'on') ? 1 : 0;
+    }
+
+    $talentDiscovery = (int) ($existing['talent_discovery_opt_in'] ?? 0);
+    if (array_key_exists('talent_discovery_opt_in', $data)) {
+        $val = $data['talent_discovery_opt_in'];
+        $talentDiscovery = ($val === 1 || $val === '1' || $val === true || $val === 'on') ? 1 : 0;
+    }
+
+    $enrollmentNo = isset($data['enrollment_number']) ? trim((string) $data['enrollment_number']) : ($existing['enrollment_number'] ?? '');
+    if (strlen($enrollmentNo) > 50) {
+        throw new EmploymentError('enrollment_number_too_long', 422);
+    }
+
+    $degree = isset($data['degree']) ? trim((string) $data['degree']) : ($existing['degree'] ?? '');
+    if (strlen($degree) > 100) {
+        throw new EmploymentError('degree_too_long', 422);
+    }
+
+    $dept = isset($data['department']) ? trim((string) $data['department']) : ($existing['department'] ?? '');
+    if (strlen($dept) > 100) {
+        throw new EmploymentError('department_too_long', 422);
+    }
+
+    $gradYear = array_key_exists('graduation_year', $data) && $data['graduation_year'] !== '' && $data['graduation_year'] !== null
+        ? (int) $data['graduation_year']
+        : ($existing['graduation_year'] ?? null);
+    if ($gradYear !== null && ($gradYear < 2000 || $gradYear > 2100)) {
+        throw new EmploymentError('invalid_graduation_year', 422);
+    }
+
     $now = time();
 
     $stmt = $pdo->prepare('
         UPDATE student_profiles
-        SET college = ?, skills = ?, bio = ?, github_username = ?, college_org_id = ?, college_share_consent = ?, updated_at = ?
+        SET college = ?, skills = ?, bio = ?, github_username = ?,
+            college_org_id = ?, college_share_consent = ?,
+            share_contact_details = ?, share_resume = ?, share_achievements = ?,
+            share_applications = ?, talent_discovery_opt_in = ?,
+            enrollment_number = ?, degree = ?, department = ?, graduation_year = ?,
+            affiliation_status = ?, updated_at = ?
         WHERE user_id = ?
     ');
-    $stmt->execute([$college, $skills, $bio, $github, $collegeOrgId, $consent, $now, $userId]);
+    $stmt->execute([
+        $college, $skills, $bio, $github,
+        $collegeOrgId, $consent,
+        $shareContact, $shareResume, $shareAchievements,
+        $shareApplications, $talentDiscovery,
+        $enrollmentNo, $degree, $dept, $gradYear,
+        $affiliationStatus, $now, $userId
+    ]);
 
     return get_profile($pdo, $userId) ?? [];
 }
@@ -385,13 +460,17 @@ function list_college_students(\PDO $pdo, int $collegeOrgId, int $userId): array
         SELECT u.id AS student_id, u.name AS student_name,
                sp.college, sp.skills, sp.github_username,
                sp.college_share_consent, sp.updated_at,
-               CASE WHEN sp.college_share_consent = 1 THEN u.email ELSE '[Consent Withheld]' END AS student_email,
-               CASE WHEN sp.college_share_consent = 1 THEN (SELECT count(*) FROM applications a WHERE a.student_id = u.id) ELSE 0 END AS applications_count,
-               CASE WHEN sp.college_share_consent = 1 THEN (SELECT count(*) FROM applications a WHERE a.student_id = u.id AND a.status = 'shortlisted') ELSE 0 END AS shortlisted_count,
-               CASE WHEN sp.college_share_consent = 1 THEN (SELECT count(*) FROM resumes r WHERE r.user_id = u.id) ELSE 0 END AS resumes_count
+               sp.share_contact_details, sp.share_resume, sp.share_achievements,
+               sp.share_applications, sp.enrollment_number, sp.degree, sp.department,
+               sp.graduation_year, sp.affiliation_status,
+               CASE WHEN sp.college_share_consent = 1 AND sp.share_contact_details = 1 THEN u.email ELSE '[Consent Withheld]' END AS student_email,
+               CASE WHEN sp.college_share_consent = 1 AND sp.share_applications = 1 THEN (SELECT count(*) FROM applications a WHERE a.student_id = u.id) ELSE 0 END AS applications_count,
+               CASE WHEN sp.college_share_consent = 1 AND sp.share_applications = 1 THEN (SELECT count(*) FROM applications a WHERE a.student_id = u.id AND a.status = 'shortlisted') ELSE 0 END AS shortlisted_count,
+               CASE WHEN sp.college_share_consent = 1 AND sp.share_resume = 1 THEN (SELECT count(*) FROM resumes r WHERE r.user_id = u.id) ELSE 0 END AS resumes_count,
+               CASE WHEN sp.college_share_consent = 1 AND sp.share_achievements = 1 THEN (SELECT count(*) FROM student_achievements ach WHERE ach.user_id = u.id) ELSE 0 END AS achievements_count
         FROM student_profiles sp
         JOIN users u ON u.id = sp.user_id
-        WHERE sp.college_org_id = ?
+        WHERE sp.college_org_id = ? AND sp.affiliation_status = 'AFFILIATED'
         ORDER BY sp.college_share_consent DESC, u.name ASC
     ");
     $stmt->execute([$collegeOrgId]);
@@ -411,10 +490,14 @@ function get_college_student_placement_details(\PDO $pdo, int $collegeOrgId, int
     $stmt = $pdo->prepare("
         SELECT u.id AS student_id, u.name AS student_name, u.email AS student_email,
                sp.college, sp.skills, sp.bio, sp.github_username,
-               sp.college_org_id, sp.college_share_consent, sp.updated_at
+               sp.college_org_id, sp.college_share_consent, sp.updated_at,
+               sp.share_contact_details, sp.share_resume, sp.share_achievements,
+               sp.share_applications, sp.talent_discovery_opt_in,
+               sp.enrollment_number, sp.degree, sp.department, sp.graduation_year,
+               sp.affiliation_status
         FROM student_profiles sp
         JOIN users u ON u.id = sp.user_id
-        WHERE sp.user_id = ? AND sp.college_org_id = ?
+        WHERE sp.user_id = ? AND sp.college_org_id = ? AND sp.affiliation_status = 'AFFILIATED'
     ");
     $stmt->execute([$studentId, $collegeOrgId]);
     $student = $stmt->fetch();
@@ -423,38 +506,139 @@ function get_college_student_placement_details(\PDO $pdo, int $collegeOrgId, int
     }
 
     if ((int) $student['college_share_consent'] !== 1) {
+        record_sensitive_access($pdo, $userId, 'college', $collegeOrgId, $studentId, 'profile', null, 'college_placement_details', false);
         throw new EmploymentError('student_consent_required', 403);
     }
 
-    // Consented student: fetch applications history
-    $appsStmt = $pdo->prepare("
-        SELECT a.id AS application_id, a.status, a.created_at,
-               j.title AS job_title, j.role_category, j.location,
-               o.name AS company_name
-        FROM applications a
-        JOIN jobs j ON j.id = a.job_id
-        JOIN organizations o ON o.id = j.organization_id
-        WHERE a.student_id = ?
-        ORDER BY a.id DESC
-    ");
-    $appsStmt->execute([$studentId]);
-    $applications = $appsStmt->fetchAll();
+    // Granular consent checking
+    if ((int) ($student['share_contact_details'] ?? 0) !== 1) {
+        $student['student_email'] = '[Consent Withheld]';
+    }
 
-    // Fetch latest resume if available
-    $resumeStmt = $pdo->prepare("
-        SELECT id, title, summary, skills_json, assessment_id, updated_at
-        FROM resumes
-        WHERE user_id = ?
-        ORDER BY id DESC
-        LIMIT 1
-    ");
-    $resumeStmt->execute([$studentId]);
-    $resume = $resumeStmt->fetch() ?: null;
+    $applications = [];
+    if ((int) ($student['share_applications'] ?? 1) === 1) {
+        $appsStmt = $pdo->prepare("
+            SELECT a.id AS application_id, a.status, a.created_at,
+                   j.title AS job_title, j.role_category, j.location,
+                   o.name AS company_name
+            FROM applications a
+            JOIN jobs j ON j.id = a.job_id
+            JOIN organizations o ON o.id = j.organization_id
+            WHERE a.student_id = ?
+            ORDER BY a.id DESC
+        ");
+        $appsStmt->execute([$studentId]);
+        $applications = $appsStmt->fetchAll();
+    }
+
+    $resume = null;
+    if ((int) ($student['share_resume'] ?? 1) === 1) {
+        $resumeStmt = $pdo->prepare("
+            SELECT id, title, summary, skills_json, assessment_id, updated_at
+            FROM resumes
+            WHERE user_id = ?
+            ORDER BY id DESC
+            LIMIT 1
+        ");
+        $resumeStmt->execute([$studentId]);
+        $resume = $resumeStmt->fetch() ?: null;
+    }
+
+    $achievements = [];
+    if ((int) ($student['share_achievements'] ?? 1) === 1) {
+        $achievements = list_student_achievements($pdo, $studentId);
+    }
+
+    record_sensitive_access($pdo, $userId, 'college', $collegeOrgId, $studentId, 'profile', null, 'college_placement_details', true);
 
     return [
         'student' => $student,
         'applications' => $applications,
         'resume' => $resume,
+        'achievements' => $achievements,
+    ];
+}
+
+/**
+ * Retrieve candidate application details for an authorized company recruiter.
+ * Bounded strictly to jobs posted by the recruiter's organization.
+ * Includes student profile, resume with GitHub assessment citations, and achievements.
+ * Automatically logs access into the sensitive record audit log.
+ */
+function get_candidate_for_recruiter(\PDO $pdo, int $applicationId, int $recruiterUserId, int $companyOrgId): array
+{
+    if (!Organizations\can($pdo, $recruiterUserId, 'perm.org.view', $companyOrgId)) {
+        throw new EmploymentError('unauthorized_company_action', 403);
+    }
+
+    $appStmt = $pdo->prepare("
+        SELECT a.id AS application_id, a.student_id, a.job_id, a.status, a.notes, a.created_at, a.updated_at,
+               j.title AS job_title, j.role_category, j.organization_id, j.location AS job_location
+        FROM applications a
+        JOIN jobs j ON j.id = a.job_id
+        WHERE a.id = ? AND j.organization_id = ?
+    ");
+    $appStmt->execute([$applicationId, $companyOrgId]);
+    $application = $appStmt->fetch();
+    if (!$application) {
+        throw new EmploymentError('application_not_found', 404);
+    }
+
+    $studentId = (int) $application['student_id'];
+    $profile = get_profile($pdo, $studentId);
+
+    // Latest resume
+    $resumeStmt = $pdo->prepare("
+        SELECT r.*,
+               a.repository AS assessment_repo, a.target_role AS assessment_role,
+               a.commit_sha AS assessment_sha, a.rubric_version AS assessment_rubric
+        FROM resumes r
+        LEFT JOIN assessments a ON a.id = r.assessment_id AND a.user_id = r.user_id AND a.state = 'completed'
+        WHERE r.user_id = ?
+        ORDER BY r.id DESC
+        LIMIT 1
+    ");
+    $resumeStmt->execute([$studentId]);
+    $resume = $resumeStmt->fetch() ?: null;
+    if ($resume) {
+        $resume['education'] = json_decode($resume['education_json'] ?? '[]', true) ?: [];
+        $resume['experience'] = json_decode($resume['experience_json'] ?? '[]', true) ?: [];
+        $resume['projects'] = json_decode($resume['projects_json'] ?? '[]', true) ?: [];
+        $resume['skills'] = json_decode($resume['skills_json'] ?? '[]', true) ?: [];
+        $resume['assessment_tasks'] = [];
+        if (!empty($resume['assessment_id'])) {
+            $taskStmt = $pdo->prepare('
+                SELECT priority, finding_id, title, acceptance
+                FROM improvement_tasks
+                WHERE assessment_id = ?
+                ORDER BY priority ASC
+            ');
+            $taskStmt->execute([$resume['assessment_id']]);
+            $resume['assessment_tasks'] = $taskStmt->fetchAll();
+        }
+    }
+
+    // Achievements
+    $achievements = list_student_achievements($pdo, $studentId);
+
+    // Record sensitive access
+    record_sensitive_access(
+        $pdo,
+        $recruiterUserId,
+        'company',
+        $companyOrgId,
+        $studentId,
+        'application',
+        $applicationId,
+        'recruiter_candidate_view',
+        true
+    );
+
+    return [
+        'application' => $application,
+        'profile' => $profile,
+        'resume' => $resume,
+        'achievements' => $achievements,
     ];
 }
 

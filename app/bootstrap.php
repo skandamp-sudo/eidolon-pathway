@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Pathway;
 
 const ROOT = __DIR__ . '/..';
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 8;
 const APPLICATION_ID = 1347895639;
 
 final class HttpError extends \RuntimeException
@@ -99,6 +99,9 @@ function migrations(): array
         3 => __DIR__ . '/migrations/003_organizations.sql',
         4 => __DIR__ . '/migrations/004_employment.sql',
         5 => __DIR__ . '/migrations/005_college.sql',
+        6 => __DIR__ . '/migrations/006_affiliation_and_consent.sql',
+        7 => __DIR__ . '/migrations/007_organization_requests.sql',
+        8 => __DIR__ . '/migrations/008_oauth_identities.sql',
     ];
 }
 
