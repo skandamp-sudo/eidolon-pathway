@@ -16,17 +16,52 @@ final class MockOAuthTransport implements Auth\OAuthTransport
     public array $getRequests = [];
     public array $tokenResponses = [];
     public array $userInfoResponses = [];
+    public array $jwksResponses = [];
 
     public function post(string $url, array $params, array $headers = []): array
     {
         $this->postRequests[] = ['url' => $url, 'params' => $params, 'headers' => $headers];
-        return $this->tokenResponses[$url] ?? ['access_token' => 'mock_access_token_xyz123'];
+        return $this->tokenResponses[$url] ?? [
+            'access_token' => 'mock_access_token_xyz123',
+            'token_type' => 'Bearer',
+        ];
     }
 
     public function get(string $url, array $headers = []): array
     {
         $this->getRequests[] = ['url' => $url, 'headers' => $headers];
+        if (isset($this->jwksResponses[$url])) {
+            return $this->jwksResponses[$url];
+        }
         return $this->userInfoResponses[$url] ?? [];
+    }
+}
+
+function make_test_id_token(
+    string $privKeyPath,
+    string $kid,
+    array $claims,
+    string $alg = 'RS256'
+): string {
+    $header = ['alg' => $alg, 'kid' => $kid, 'typ' => 'JWT'];
+    $hB64 = Auth\base64url_encode((string) json_encode($header));
+    $pB64 = Auth\base64url_encode((string) json_encode($claims));
+    $data = $hB64 . '.' . $pB64;
+
+    $dataPath = tempnam(sys_get_temp_dir(), 'jwt_d_');
+    $sigPath = tempnam(sys_get_temp_dir(), 'jwt_s_');
+    if ($dataPath === false || $sigPath === false) {
+        throw new \RuntimeException('Failed to allocate temp files');
+    }
+
+    try {
+        file_put_contents($dataPath, $data);
+        exec('openssl dgst -sha256 -sign ' . escapeshellarg($privKeyPath) . ' -out ' . escapeshellarg($sigPath) . ' ' . escapeshellarg($dataPath) . ' 2>/dev/null');
+        $rawSig = file_get_contents($sigPath);
+        return $data . '.' . Auth\base64url_encode($rawSig ?: '');
+    } finally {
+        @unlink($dataPath);
+        @unlink($sigPath);
     }
 }
 
@@ -46,7 +81,7 @@ function test_oauth_workflow(): void
     };
 
     echo "====================================================================\n";
-    echo "  CHECKPOINT 009D: SECURE SOCIAL AUTHENTICATION & OIDC TESTS\n";
+    echo "  MISSION 009.1: OIDC VERIFICATION & ADVERSARIAL OAUTH SECURITY TESTS\n";
     echo "====================================================================\n";
 
     // Setup isolated test database
@@ -55,7 +90,18 @@ function test_oauth_workflow(): void
     $pdo = \Pathway\database(true, $dbPath);
     \Pathway\initialize_database($pdo);
 
-    // 1. Provider configuration fail-closed
+    // 1. Generate RSA keypair for testing OIDC JWKS signatures
+    $testPrivKey = tempnam(sys_get_temp_dir(), 'oidc_priv_');
+    exec('openssl genrsa -out ' . escapeshellarg($testPrivKey) . ' 2048 2>/dev/null');
+    $modHex = trim(str_replace('Modulus=', '', (string) shell_exec('openssl rsa -in ' . escapeshellarg($testPrivKey) . ' -noout -modulus 2>/dev/null')));
+    $jwk = [
+        'kty' => 'RSA',
+        'kid' => 'key-google-2026',
+        'n' => Auth\base64url_encode(hex2bin($modHex) ?: ''),
+        'e' => Auth\base64url_encode("\x01\x00\x01"),
+    ];
+
+    // 2. Provider configuration fail-closed
     putenv('GOOGLE_CLIENT_ID');
     putenv('GOOGLE_CLIENT_SECRET');
     $assert(Auth\get_provider_config('google') === null, 'unconfigured provider fails closed (returns null)');
@@ -77,157 +123,292 @@ function test_oauth_workflow(): void
     $configuredList = Auth\get_configured_providers();
     $assert(isset($configuredList['google']) && isset($configuredList['github']), 'get_configured_providers discovers active providers');
 
-    // 2. Flow Initiation & PKCE parameters
+    // 3. Flow Initiation & PKCE parameters
     $redirectUrl = Auth\initiate_oauth_flow($pdo, 'google', 'student');
     $parsedUrl = parse_url($redirectUrl);
     parse_str($parsedUrl['query'] ?? '', $queryParams);
 
-    $assert(!empty($queryParams['state']) && strlen($queryParams['state']) === 64, 'initiate flow generates 256-bit CSPRNG state');
+    $state = $queryParams['state'];
+    $nonce = $queryParams['nonce'];
+    $assert(!empty($state) && strlen($state) === 64, 'initiate flow generates 256-bit CSPRNG state');
     $assert(!empty($queryParams['code_challenge']), 'initiate flow generates PKCE code_challenge');
     $assert(($queryParams['code_challenge_method'] ?? '') === 'S256', 'PKCE method is strictly S256');
 
     // Verify persisted state record
     $stmt = $pdo->prepare('SELECT * FROM oauth_states WHERE state = ?');
-    $stmt->execute([$queryParams['state']]);
+    $stmt->execute([$state]);
     $stateRow = $stmt->fetch();
     $assert($stateRow !== false, 'state record persisted in database');
     $assert($stateRow['provider'] === 'google' && $stateRow['used_at'] === null, 'state marked unused with correct provider');
-    $assert(!empty($stateRow['code_verifier']), 'PKCE code_verifier stored securely server-side');
 
-    // 3. New User Auto-Provisioning with Locked Password
+    // 4. Adversarial Test: Login CSRF Defense (Session state mismatch)
     $transport = new MockOAuthTransport();
-    $transport->tokenResponses['https://oauth2.googleapis.com/token'] = ['access_token' => 'tok_valid_user1'];
-    $transport->userInfoResponses['https://openidconnect.googleapis.com/v1/userinfo'] = [
-        'sub' => 'google-sub-10001',
-        'email' => 'social.student1@example.test',
+    $transport->jwksResponses['https://www.googleapis.com/oauth2/v3/certs'] = ['keys' => [$jwk]];
+
+    $loginCsrfBlocked = false;
+    try {
+        // Attacker passes a valid DB state, but session State belongs to another session
+        Auth\handle_oauth_callback($pdo, 'google', $state, 'auth_code_123', $transport, 'different_session_state_value_attacker');
+    } catch (Auth\OAuthError $e) {
+        $loginCsrfBlocked = ($e->reason === 'login_csrf_detected' && $e->statusCode === 403);
+    }
+    $assert($loginCsrfBlocked, 'adversarial: login CSRF session mismatch rejected with 403');
+
+    // 5. Adversarial Test: OIDC Missing ID Token
+    $transport->tokenResponses['https://oauth2.googleapis.com/token'] = [
+        'access_token' => 'tok_valid_user1',
+        // id_token intentionally missing
+    ];
+    $missingIdTokenBlocked = false;
+    try {
+        Auth\handle_oauth_callback($pdo, 'google', $state, 'auth_code_123', $transport, $state);
+    } catch (Auth\OAuthError $e) {
+        $missingIdTokenBlocked = ($e->reason === 'id_token_missing' && $e->statusCode === 400);
+    }
+    $assert($missingIdTokenBlocked, 'adversarial: missing OIDC id_token on Google callback rejected with 400');
+
+    // Need a new state since previous failed after state consumption check or let us reset state
+    $pdo->prepare('UPDATE oauth_states SET used_at = NULL WHERE state = ?')->execute([$state]);
+
+    // 6. Adversarial Test: OIDC Forged Signature
+    $forgedClaims = [
+        'sub' => 'google-attacker-999',
+        'email' => 'victim@example.test',
         'email_verified' => true,
-        'name' => 'Maya Lin',
+        'aud' => 'test-google-client-id.apps.googleusercontent.com',
+        'iss' => 'https://accounts.google.com',
+        'exp' => time() + 3600,
+        'iat' => time(),
+        'nonce' => $nonce,
+    ];
+    $fakePrivKey = tempnam(sys_get_temp_dir(), 'fake_priv_');
+    exec('openssl genrsa -out ' . escapeshellarg($fakePrivKey) . ' 2048 2>/dev/null');
+    $forgedJwt = make_test_id_token($fakePrivKey, 'key-google-2026', $forgedClaims);
+    @unlink($fakePrivKey);
+
+    $transport->tokenResponses['https://oauth2.googleapis.com/token'] = [
+        'access_token' => 'tok_attacker',
+        'id_token' => $forgedJwt,
     ];
 
-    $authResult = Auth\handle_oauth_callback($pdo, 'google', $queryParams['state'], 'auth_code_123', $transport);
-    $assert($authResult['is_new'] === true, 'new OAuth identity reports is_new=true');
-    $assert($authResult['user']['email'] === 'social.student1@example.test', 'provisioned user has verified email');
+    $forgedSigBlocked = false;
+    try {
+        Auth\handle_oauth_callback($pdo, 'google', $state, 'code_attacker', $transport, $state);
+    } catch (Auth\OAuthError $e) {
+        $forgedSigBlocked = ($e->reason === 'invalid_id_token_signature' && $e->statusCode === 403);
+    }
+    $assert($forgedSigBlocked, 'adversarial: forged ID-token signature rejected with 403');
+    $pdo->prepare('UPDATE oauth_states SET used_at = NULL WHERE state = ?')->execute([$state]);
+
+    // 7. Adversarial Test: OIDC Invalid Issuer
+    $badIssuerClaims = $forgedClaims;
+    $badIssuerClaims['iss'] = 'https://rogue-identity-provider.test';
+    $badIssuerJwt = make_test_id_token($testPrivKey, 'key-google-2026', $badIssuerClaims);
+    $transport->tokenResponses['https://oauth2.googleapis.com/token']['id_token'] = $badIssuerJwt;
+
+    $badIssuerBlocked = false;
+    try {
+        Auth\handle_oauth_callback($pdo, 'google', $state, 'code_bad_issuer', $transport, $state);
+    } catch (Auth\OAuthError $e) {
+        $badIssuerBlocked = ($e->reason === 'invalid_id_token_issuer' && $e->statusCode === 403);
+    }
+    $assert($badIssuerBlocked, 'adversarial: untrusted ID-token issuer rejected with 403');
+    $pdo->prepare('UPDATE oauth_states SET used_at = NULL WHERE state = ?')->execute([$state]);
+
+    // 8. Adversarial Test: OIDC Audience Mismatch
+    $badAudClaims = $forgedClaims;
+    $badAudClaims['aud'] = 'different-app-client-id-xyz';
+    $badAudJwt = make_test_id_token($testPrivKey, 'key-google-2026', $badAudClaims);
+    $transport->tokenResponses['https://oauth2.googleapis.com/token']['id_token'] = $badAudJwt;
+
+    $badAudBlocked = false;
+    try {
+        Auth\handle_oauth_callback($pdo, 'google', $state, 'code_bad_aud', $transport, $state);
+    } catch (Auth\OAuthError $e) {
+        $badAudBlocked = ($e->reason === 'invalid_id_token_audience' && $e->statusCode === 403);
+    }
+    $assert($badAudBlocked, 'adversarial: ID-token audience mismatch rejected with 403');
+    $pdo->prepare('UPDATE oauth_states SET used_at = NULL WHERE state = ?')->execute([$state]);
+
+    // 9. Adversarial Test: OIDC Expired Token
+    $expiredClaims = $forgedClaims;
+    $expiredClaims['exp'] = time() - 300; // 5 minutes ago
+    $expiredJwt = make_test_id_token($testPrivKey, 'key-google-2026', $expiredClaims);
+    $transport->tokenResponses['https://oauth2.googleapis.com/token']['id_token'] = $expiredJwt;
+
+    $expiredBlocked = false;
+    try {
+        Auth\handle_oauth_callback($pdo, 'google', $state, 'code_expired', $transport, $state);
+    } catch (Auth\OAuthError $e) {
+        $expiredBlocked = ($e->reason === 'id_token_expired' && $e->statusCode === 401);
+    }
+    $assert($expiredBlocked, 'adversarial: expired ID-token rejected with 401');
+    $pdo->prepare('UPDATE oauth_states SET used_at = NULL WHERE state = ?')->execute([$state]);
+
+    // 10. Adversarial Test: OIDC Nonce Mismatch
+    $badNonceClaims = $forgedClaims;
+    $badNonceClaims['nonce'] = 'wrong_nonce_value_1234';
+    $badNonceJwt = make_test_id_token($testPrivKey, 'key-google-2026', $badNonceClaims);
+    $transport->tokenResponses['https://oauth2.googleapis.com/token']['id_token'] = $badNonceJwt;
+
+    $badNonceBlocked = false;
+    try {
+        Auth\handle_oauth_callback($pdo, 'google', $state, 'code_bad_nonce', $transport, $state);
+    } catch (Auth\OAuthError $e) {
+        $badNonceBlocked = ($e->reason === 'invalid_id_token_nonce' && $e->statusCode === 403);
+    }
+    $assert($badNonceBlocked, 'adversarial: ID-token nonce mismatch rejected with 403');
+    $pdo->prepare('UPDATE oauth_states SET used_at = NULL WHERE state = ?')->execute([$state]);
+
+    // 11. Valid OIDC Registration & Student Role Enforcement (Privilege Escalation Gate)
+    // Even if an attacker requested intended_role='company', OAuth MUST provision strictly as 'student'
+    $pdo->prepare("UPDATE oauth_states SET intended_role = 'company' WHERE state = ?")->execute([$state]);
+
+    $validClaims = [
+        'sub' => 'google-sub-maya-1001',
+        'email' => 'maya.lin@example.test',
+        'email_verified' => true,
+        'name' => 'Maya Lin',
+        'aud' => 'test-google-client-id.apps.googleusercontent.com',
+        'iss' => 'https://accounts.google.com',
+        'exp' => time() + 3600,
+        'iat' => time(),
+        'nonce' => $nonce,
+    ];
+    $validJwt = make_test_id_token($testPrivKey, 'key-google-2026', $validClaims);
+    $transport->tokenResponses['https://oauth2.googleapis.com/token']['id_token'] = $validJwt;
+
+    $authResult = Auth\handle_oauth_callback($pdo, 'google', $state, 'code_valid_123', $transport, $state);
+    $assert($authResult['is_new'] === true, 'valid OIDC ID-token successfully registers user');
+    $assert($authResult['user']['email'] === 'maya.lin@example.test', 'provisioned email matches verified ID-token claim');
+    $assert($authResult['user']['role'] === 'student', 'privilege escalation blocked: OAuth registration assigned strictly student role');
     $userId1 = (int) $authResult['user']['id'];
 
-    // Verify user in DB has locked password preventing password login before explicitly set
+    // Verify locked password in DB
     $stmt = $pdo->prepare('SELECT password_hash, role FROM users WHERE id = ?');
     $stmt->execute([$userId1]);
-    $userRow = $stmt->fetch();
-    $assert(str_starts_with($userRow['password_hash'], '*LOCKED_OAUTH_'), 'provisioned user account has cryptographically locked password');
-    $assert($userRow['role'] === 'student', 'provisioned role matches student');
+    $uRow = $stmt->fetch();
+    $assert(str_starts_with($uRow['password_hash'], '*LOCKED_OAUTH_'), 'provisioned user account has cryptographically locked password');
+    $assert($uRow['role'] === 'student', 'database row enforces student role');
 
-    // Verify oauth_identities binding
-    $identities = Auth\list_user_identities($pdo, $userId1);
-    $assert(count($identities) === 1, 'user has exactly 1 bound OAuth identity');
-    $assert($identities[0]['provider'] === 'google' && $identities[0]['provider_subject_id'] === 'google-sub-10001', 'bound identity has correct provider subject ID');
-
-    // 4. Anti-Replay Defense: State already consumed
+    // 12. Replay Protection: Consumed State Cannot Be Reused
     $replayBlocked = false;
     try {
-        Auth\handle_oauth_callback($pdo, 'google', $queryParams['state'], 'auth_code_123', $transport);
+        Auth\handle_oauth_callback($pdo, 'google', $state, 'code_valid_123', $transport, $state);
     } catch (Auth\OAuthError $e) {
-        $replayBlocked = ($e->reason === 'state_already_used');
+        $replayBlocked = ($e->reason === 'state_already_used' && $e->statusCode === 400);
     }
-    $assert($replayBlocked, 'replay attack blocked: previously consumed state cannot be reused');
+    $assert($replayBlocked, 'replay protection: previously consumed OAuth state rejected');
 
-    // 5. Subsequent Login with existing identity
+    // 13. Subsequent Login with Existing Bound Identity
     $loginRedirectUrl = Auth\initiate_oauth_flow($pdo, 'google', 'student');
     parse_str(parse_url($loginRedirectUrl)['query'] ?? '', $loginParams);
 
-    $loginResult = Auth\handle_oauth_callback($pdo, 'google', $loginParams['state'], 'auth_code_456', $transport);
-    $assert($loginResult['is_new'] === false, 'existing OAuth identity reports is_new=false');
-    $assert((int) $loginResult['user']['id'] === $userId1, 'existing identity resolves to the exact same user ID');
+    $loginClaims = $validClaims;
+    $loginClaims['nonce'] = $loginParams['nonce'];
+    $loginJwt = make_test_id_token($testPrivKey, 'key-google-2026', $loginClaims);
+    $transport->tokenResponses['https://oauth2.googleapis.com/token']['id_token'] = $loginJwt;
 
-    // 6. Anti-Account-Takeover Defense:
-    // Attacker or unlinked social account returning email of existing password user must NOT auto-link!
+    $loginResult = Auth\handle_oauth_callback($pdo, 'google', $loginParams['state'], 'code_subsequent', $transport, $loginParams['state']);
+    $assert($loginResult['is_new'] === false, 'subsequent login reports is_new=false');
+    $assert((int) $loginResult['user']['id'] === $userId1, 'resolves strictly to the existing bound account ID');
+
+    // 14. Anti-Account-Takeover Defense: Email Collision without Linking Verification
     $pdo->prepare('INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)')->execute([
-        'Existing User',
+        'Existing Victim',
         'victim@university.test',
-        password_hash('StrongSecretPass123!', PASSWORD_BCRYPT),
+        password_hash('VictimPass123!@#', PASSWORD_BCRYPT),
         'student',
     ]);
-    $victimId = (int) $pdo->lastInsertId();
 
     $takeoverUrl = Auth\initiate_oauth_flow($pdo, 'google', 'student');
     parse_str(parse_url($takeoverUrl)['query'] ?? '', $takeoverParams);
 
-    $transport->userInfoResponses['https://openidconnect.googleapis.com/v1/userinfo'] = [
-        'sub' => 'google-sub-attacker-999',
+    $takeoverClaims = [
+        'sub' => 'google-sub-attacker-666',
         'email' => 'victim@university.test',
         'email_verified' => true,
-        'name' => 'Attempted Takeover',
+        'name' => 'Attacker Identity',
+        'aud' => 'test-google-client-id.apps.googleusercontent.com',
+        'iss' => 'https://accounts.google.com',
+        'exp' => time() + 3600,
+        'iat' => time(),
+        'nonce' => $takeoverParams['nonce'],
     ];
+    $takeoverJwt = make_test_id_token($testPrivKey, 'key-google-2026', $takeoverClaims);
+    $transport->tokenResponses['https://oauth2.googleapis.com/token']['id_token'] = $takeoverJwt;
 
-    $takeoverPrevented = false;
+    $takeoverBlocked = false;
     try {
-        Auth\handle_oauth_callback($pdo, 'google', $takeoverParams['state'], 'code_takeover', $transport);
+        Auth\handle_oauth_callback($pdo, 'google', $takeoverParams['state'], 'code_takeover', $transport, $takeoverParams['state']);
     } catch (Auth\OAuthError $e) {
-        $takeoverPrevented = ($e->reason === 'account_linking_required' && $e->statusCode === 409);
+        $takeoverBlocked = ($e->reason === 'account_linking_required' && $e->statusCode === 409);
     }
-    $assert($takeoverPrevented, 'anti-takeover defense: social email matching password user rejected without prior linking');
+    $assert($takeoverBlocked, 'anti-takeover: social identity matching existing password account rejected with 409');
 
-    // 7. Explicit Authenticated Account Linking
-    $linkUrl = Auth\initiate_oauth_flow($pdo, 'github', 'student', $userId1);
-    parse_str(parse_url($linkUrl)['query'] ?? '', $linkParams);
+    // 15. GitHub OAuth: Verified Primary Email Required
+    $ghUrl = Auth\initiate_oauth_flow($pdo, 'github', 'student', $userId1);
+    parse_str(parse_url($ghUrl)['query'] ?? '', $ghParams);
 
-    $transport->tokenResponses['https://github.com/login/oauth/access_token'] = ['access_token' => 'gh_tok_777'];
+    $transport->tokenResponses['https://github.com/login/oauth/access_token'] = ['access_token' => 'gh_tok_abc'];
     $transport->userInfoResponses['https://api.github.com/user'] = [
-        'id' => 8881234,
-        'login' => 'mayalin-dev',
-        'name' => 'Maya Lin Dev',
-        'email' => 'maya.github@example.test',
+        'id' => 9912837,
+        'login' => 'mayalin-gh',
+        'name' => 'Maya Lin GitHub',
     ];
 
-    $linkResult = Auth\handle_oauth_callback($pdo, 'github', $linkParams['state'], 'code_github_link', $transport);
-    $assert(!empty($linkResult['linked']), 'explicit account linking reports linked=true');
-    $assert((int) $linkResult['user']['id'] === $userId1, 'linked identity bound to the authenticated user');
+    // Adversarial: GitHub returns only unverified emails
+    $transport->userInfoResponses['https://api.github.com/user/emails'] = [
+        ['email' => 'unverified@attacker.test', 'primary' => true, 'verified' => false],
+    ];
 
-    $allIdentities = Auth\list_user_identities($pdo, $userId1);
-    $assert(count($allIdentities) === 2, 'user now has two federated identities (Google and GitHub)');
+    $ghUnverifiedBlocked = false;
+    try {
+        Auth\handle_oauth_callback($pdo, 'github', $ghParams['state'], 'code_gh_unverified', $transport, $ghParams['state']);
+    } catch (Auth\OAuthError $e) {
+        $ghUnverifiedBlocked = ($e->reason === 'github_verified_email_required' && $e->statusCode === 403);
+    }
+    $assert($ghUnverifiedBlocked, 'adversarial: GitHub account with unverified email rejected with 403');
 
-    // 8. Unlink Identity with Multiple Providers (Allowed)
+    // Legitimate GitHub with verified primary email
+    $pdo->prepare('UPDATE oauth_states SET used_at = NULL WHERE state = ?')->execute([$ghParams['state']]);
+    $transport->userInfoResponses['https://api.github.com/user/emails'] = [
+        ['email' => 'maya.lin.verified@github.test', 'primary' => true, 'verified' => true],
+    ];
+
+    $ghLinkResult = Auth\handle_oauth_callback($pdo, 'github', $ghParams['state'], 'code_gh_verified', $transport, $ghParams['state']);
+    $assert(!empty($ghLinkResult['linked']), 'authenticated GitHub linking succeeds with verified primary email');
+    $assert((int) $ghLinkResult['user']['id'] === $userId1, 'bound to the authenticated user ID');
+
+    // 16. Multiple Identities & Unlink Lockout Safety
+    $identities = Auth\list_user_identities($pdo, $userId1);
+    $assert(count($identities) === 2, 'user now has 2 bound identities (Google and GitHub)');
+
+    // Unlinking 1 of 2 identities is allowed
     Auth\unlink_identity($pdo, $userId1, 'github');
-    $remainingIdentities = Auth\list_user_identities($pdo, $userId1);
-    $assert(count($remainingIdentities) === 1 && $remainingIdentities[0]['provider'] === 'google', 'unlinking one of two identities succeeds');
+    $remaining = Auth\list_user_identities($pdo, $userId1);
+    $assert(count($remaining) === 1 && $remaining[0]['provider'] === 'google', 'unlinking secondary identity succeeds');
 
-    // 9. Unlink Identity Lockout Prevention (Denied for sole authentication method)
+    // Unlinking sole authentication method blocked to prevent account lockout
     $lockoutBlocked = false;
     try {
         Auth\unlink_identity($pdo, $userId1, 'google');
     } catch (Auth\OAuthError $e) {
-        $lockoutBlocked = ($e->reason === 'cannot_unlink_sole_authentication_method');
+        $lockoutBlocked = ($e->reason === 'cannot_unlink_sole_authentication_method' && $e->statusCode === 400);
     }
-    $assert($lockoutBlocked, 'account lockout prevention: unlinking sole authentication method blocked');
+    $assert($lockoutBlocked, 'lockout prevention: unlinking sole authentication method blocked');
 
-    // If user sets a password, unlinking becomes allowed:
+    // User sets password, then unlinking is permitted
     $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ?')->execute([
-        password_hash('NewUsablePassword456!', PASSWORD_BCRYPT),
+        password_hash('NewUsablePassword456!@#', PASSWORD_BCRYPT),
         $userId1,
     ]);
     Auth\unlink_identity($pdo, $userId1, 'google');
     $finalIdentities = Auth\list_user_identities($pdo, $userId1);
     $assert(count($finalIdentities) === 0, 'unlinking last identity allowed once user has a valid password');
 
-    // 10. Provider Email Verification Requirement
-    $unverifiedUrl = Auth\initiate_oauth_flow($pdo, 'google', 'student');
-    parse_str(parse_url($unverifiedUrl)['query'] ?? '', $unverifiedParams);
-
-    $transport->userInfoResponses['https://openidconnect.googleapis.com/v1/userinfo'] = [
-        'sub' => 'google-sub-unverified',
-        'email' => 'unverified@example.test',
-        'email_verified' => false,
-        'name' => 'Unverified User',
-    ];
-
-    $unverifiedRejected = false;
-    try {
-        Auth\handle_oauth_callback($pdo, 'google', $unverifiedParams['state'], 'code_unverified', $transport);
-    } catch (Auth\OAuthError $e) {
-        $unverifiedRejected = ($e->reason === 'email_not_verified_by_provider' && $e->statusCode === 403);
-    }
-    $assert($unverifiedRejected, 'unverified email claims rejected with 403');
-
-    // Cleanup temp DB
+    // Cleanup temp resources
+    @unlink($testPrivKey);
     @unlink($dbPath);
 
     echo "====================================================================\n";

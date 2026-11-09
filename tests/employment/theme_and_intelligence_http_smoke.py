@@ -142,11 +142,24 @@ with tempfile.TemporaryDirectory(prefix='pathway-theme-intel-http-') as director
 
         conn.commit()
 
-        # 2. Page HTML head theme script and switcher
+        # 2. Page HTML head theme script, CSP compliance, and switcher
         anon = Client(port)
         status, headers, body = anon.request('/login')
         check('GET /login loads successfully (200)', status == 200)
-        check('HTML head contains anti-FOUC theme script', 'localStorage.getItem(\'pathway-theme\')' in body)
+        csp = headers.get('content-security-policy', '')
+        directives = {d.strip().split()[0]: d.strip() for d in csp.split(';') if d.strip()}
+        script_dir = directives.get('script-src', '')
+        check('CSP specifies script-src \'self\'', "script-src 'self'" in script_dir)
+        check('CSP excludes unsafe-inline for scripts', "'unsafe-inline'" not in script_dir)
+        check('HTML head links external first-party theme script', '<script src="/assets/theme.js"></script>' in body)
+        check('HTML has no inline <script> tags', '<script>' not in body and '<script ' not in body.replace('<script src="/assets/theme.js"></script>', ''))
+
+        # Verify /assets/theme.js serves properly and contains anti-FOUC logic
+        t_status, t_headers, t_body = anon.request('/assets/theme.js')
+        check('GET /assets/theme.js returns 200', t_status == 200)
+        check('/assets/theme.js served as javascript', 'javascript' in t_headers.get('content-type', ''))
+        check('/assets/theme.js contains anti-FOUC localStorage theme logic', "localStorage.getItem('pathway-theme')" in t_body)
+
         check('HTML renders theme switcher with 3 options', 'data-theme-set="light"' in body and 'data-theme-set="system"' in body and 'data-theme-set="dark"' in body)
         check('HTML body contains skip-link for accessibility', 'class="skip-link"' in body)
 

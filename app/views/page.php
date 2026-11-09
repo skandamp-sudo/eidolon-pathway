@@ -28,16 +28,7 @@ namespace Pathway;
     'request_access' => 'Request Institutional Access',
     default => 'Student Access',
   } ?> · EIDOLON PATHWAY</title>
-  <script>
-    (function() {
-      var stored = localStorage.getItem('pathway-theme') || 'system';
-      if (stored === 'light' || stored === 'dark') {
-        document.documentElement.setAttribute('data-theme', stored);
-      } else {
-        document.documentElement.setAttribute('data-theme', 'system');
-      }
-    })();
-  </script>
+  <script src="/assets/theme.js"></script>
   <link rel="stylesheet" href="/assets/pathway.css">
 </head>
 <body>
@@ -3792,38 +3783,5 @@ namespace Pathway;
   <div>Local-First Prototype &middot; Standalone PHP 8.4 + SQLite v4 &middot; Zero Code Execution</div>
 </footer>
 
-<script>
-(function() {
-  function applyTheme(theme) {
-    if (theme === 'light' || theme === 'dark') {
-      document.documentElement.setAttribute('data-theme', theme);
-    } else {
-      document.documentElement.setAttribute('data-theme', 'system');
-    }
-    try {
-      localStorage.setItem('pathway-theme', theme);
-    } catch (e) {}
-    document.querySelectorAll('.theme-btn').forEach(function(btn) {
-      if (btn.getAttribute('data-theme-set') === theme) {
-        btn.classList.add('active');
-        btn.setAttribute('aria-pressed', 'true');
-      } else {
-        btn.classList.remove('active');
-        btn.setAttribute('aria-pressed', 'false');
-      }
-    });
-  }
-  var current = 'system';
-  try {
-    current = localStorage.getItem('pathway-theme') || 'system';
-  } catch (e) {}
-  applyTheme(current);
-  document.querySelectorAll('.theme-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      applyTheme(this.getAttribute('data-theme-set'));
-    });
-  });
-})();
-</script>
 </body>
 </html>

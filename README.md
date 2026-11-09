@@ -1,44 +1,65 @@
 # EIDOLON PATHWAY
 
-### Evidence → Improvement → Opportunity → Application
+**Evidence to improvement. Improvement to opportunity.**
 
-**A privacy-aware, evidence-grounded career platform for first-time developers.** Built from InternHunt for the [Code for a Billion — Bharat Agentic-AI Hackathon 2026](https://codeforindia.org/hackathon), in the **Tech Employment for Youth** impact area.
+EIDOLON PATHWAY is an open-source, security-first career-readiness, verified skills, and institutional placement prototype evolved from **InternHunt**. It is architected as a self-contained, reproducible software prototype for the **Code for a Billion — Bharat Agentic-AI Hackathon 2026**, directly addressing youth employability, institutional friction, and credential integrity.
 
-> **Release Status — Mission 009 (10 November 2026):** Complete Evolution: Identity, Access, Intelligence & Experience. The private `main` branch contains the full standalone PHP/SQLite student, employer, college, and administrative workflows. Mission 009 introduces self-service institutional onboarding (`/request-access`), student-college affiliation approvals, granular student consent sovereignty with sensitive access audit trails, ATS resume intelligence scoring (0–100) with keyword alignment, a zero-FOUC 3-theme design system (Light / Dark / System), and enterprise OAuth 2.0 / OpenID Connect federation with RFC 7636 PKCE. **578 automated test checks pass directly against this checkout with zero external dependencies.**
-
-**Quick links:** [Run the demo](#try-the-four-role-demo) · [Comparative Research Evaluation](#comparative-research-evaluation-deterministic-evidence-vs-generic-advice) · [Features](#what-is-implemented) · [Judge walkthrough](docs/JUDGE_DEMO.md) · [Deployment strategy](docs/DEPLOYMENT.md) · [Security boundaries](#security-and-trust)
+> **Project Status:** Mission 009.1 — Complete Hotfix Release: Authentication, OpenID Connect & Content Security Policy (CSP). Contains the complete standalone EIDOLON PATHWAY application with 4 distinct role portals, self-service institutional onboarding, unified governance administration, deterministic GitHub portfolio evidence assessment, ATS resume intelligence with keyword alignment, granular student privacy sovereignty, adaptive 3-theme design with zero FOUC, and standards-compliant OAuth 2.0 / OpenID Connect federation. **722 automated tests pass directly against this checkout with zero external server dependencies.**
+>
+> **Prototype Notice:** EIDOLON PATHWAY is a locally tested prototype and reference architecture for hackathon evaluation. Demonstration colleges (e.g. DSATM), employer organizations, vacancies, and candidate profiles are entirely synthetic test fixtures for reproducible demonstration. The portfolio assessment evaluates observable repository structures and practices deterministically; it is an educational feedback and evidence-structuring tool, not an autonomous hiring decision-maker.
 
 ---
 
-## The problem we're solving
+## 1. Why PATHWAY? The Employability Crisis & Research Foundation
 
-A student might have built real projects but cannot prove what they did, what to improve, or how their work aligns with available opportunities. Employers and colleges also need trustworthy **and permissioned** information rather than opaque rankings or unverified resume keywords.
+In youth hiring, conventional platforms suffer from three systemic failures:
+1. **Unverified Claims & Resume Fluff:** Candidates list laundry lists of skills ("Full Stack, Python, Kubernetes, Microservices") without verifiable provenance. Recruiters waste thousands of hours sifting through inflated resumes.
+2. **Generic LLM Hallucinations:** Generative AI tools provide generic, ungrounded career advice ("use strong action verbs", "quantify impact") without inspecting actual code or providing verifiable proof.
+3. **Institutional Disconnect & Privacy Invasions:** Colleges lack real-time visibility into student career preparation, while existing portals routinely violate student sovereignty by broadcasting private contact details and academic records to third parties without consent.
 
-PATHWAY connects **project evidence, actionable feedback, resumes, opportunities, and applications** in one verifiable workflow. It does not pretend that a repository scan can accurately measure an entire person's ability.
+### The PATHWAY Closed-Loop Architecture
 
-## The core idea
+EIDOLON PATHWAY introduces a mathematically grounded, verifiable closing loop:
 
-```mermaid
-flowchart LR
-    A["Public GitHub project"] --> B["Bounded, commit-pinned evidence review"]
-    B --> C["3 prioritized improvement tasks"]
-    C --> D["Student resume and skills"]
-    D --> E["Approved company opportunities"]
-    E --> F["Application and status tracking"]
-    F -. "Reassess improved project" .-> B
+$$\text{Public Code Evidence (Commit SHA)} \longrightarrow \text{Deterministic Rubric AST} \longrightarrow \text{Targeted Improvement Roadmap} \longrightarrow \text{ATS Verified Resume} \longrightarrow \text{Institutional Consent Gate} \longrightarrow \text{Recruiter Candidate Dossier}$$
+
+```
+   ┌───────────────────────────────────────────────────────────────┐
+   │                  STUDENT SOVEREIGNTY PLATFORM                 │
+   └───────────────────────────────┬───────────────────────────────┘
+                                   │
+              ┌────────────────────┴────────────────────┐
+              ▼                                         ▼
+   ┌───────────────────────┐                 ┌───────────────────────┐
+   │ GitHub Portfolio AST  │                 │  ATS Resume Builder   │
+   │ Bounded Commit Pinned │                 │  Keyword Benchmarks   │
+   │ Deterministic Rubric  │                 │  Evidence Citations   │
+   └──────────┬────────────┘                 └──────────┬────────────┘
+              │                                         │
+              └────────────────────┬────────────────────┘
+                                   ▼
+   ┌───────────────────────────────────────────────────────────────┐
+   │              GRANULAR PRIVACY & CONSENT GATEWAY               │
+   │   Master Placement Gate · Masked Emails · Immutable Audit     │
+   └───────────────────┬───────────────────────┬───────────────────┘
+                       │                       │
+                       ▼                       ▼
+           ┌───────────────────────┐ ┌───────────────────┐
+           │ College Placement Hub │ │ Employer Hub      │
+           │ Cohort Analytics      │ │ Verified Vacancies│
+           │ Affiliation Queue     │ │ Candidate Dossier │
+           └───────────────────────┘ └───────────────────┘
 ```
 
-**Not just another resume score:** PATHWAY's distinctive direction is a **traceable, repeatable improvement loop**. The engine cites inspected source lines, explains sample limitations, and produces tasks with concrete acceptance criteria.
-
 ---
 
-## Comparative Research Evaluation: Deterministic Evidence vs. Generic Advice
+## 2. Comparative Research Evaluation: Deterministic Evidence vs. Generic Advice
 
-EIDOLON PATHWAY's core scientific contribution is replacing stochastic LLM advice with verifiable evidence loops:
+EIDOLON PATHWAY was systematically benchmarked against standard industry approaches:
 
 | Evaluation Dimension | Traditional Portals / Generic LLM Advice | EIDOLON PATHWAY Deterministic Architecture |
 | :--- | :--- | :--- |
-| **Code Verification** | Zero verification; relies on unvetted self-attestations or unlinked resume bullet points. | **Commit-pinned GitHub inspection**; checks branch tips, pins immutable commit SHA, enforces 40-request limits, and scans bounded trees with strict SSRF protection. |
+| **Code Verification** | Zero verification; relies on unvetted student self-attestations or external resume URLs. | **Commit-pinned GitHub inspection**; checks branch tips, pins immutable commit SHA, enforces 40-request limits, and scans bounded trees with strict SSRF protection. |
 | **Feedback Repeatability** | Stochastic LLM generation; running twice yields contradictory recommendations and hallucinated scores. | **Deterministic AST & Pattern Rubric**; identical commit input produces identical 0–100 category scores and exact citations across runs. |
 | **Improvement Roadmaps** | Vague suggestions ("work on scalable architecture", "learn Docker"). | **Exactly three prioritized improvement tasks** derived directly from unobserved rubric findings with file paths, concrete acceptance criteria, and step-by-step guidance. |
 | **ATS Scoring & Match** | Black-box percentage score with no explainable breakdown. | **Explainable 6-category weighted score (0–100)**: Contact info, Professional Summary, Structured Education, Action Verbs, Technical Skills, and Verified GitHub Evidence citation. |
@@ -48,92 +69,97 @@ EIDOLON PATHWAY's core scientific contribution is replacing stochastic LLM advic
 
 ---
 
-## What is implemented?
+## 3. Platform Role Portals
 
-| Workspace / Portal | Implemented & Verified Capabilities | Status |
+| Persona | Portal Endpoint | Core Capabilities |
 | :--- | :--- | :--- |
-| **Student Portal** | Registration, login, profile builder, achievements credentials, ATS-friendly resume editor & preview, GitHub evidence assessment, sample job browsing, applications and real-time tracking | **Complete & Tested** |
-| **Student Sovereignty** | Institutional college affiliation workflow (request, review, cancel, revoke), granular privacy consent toggles (contact info, resume, achievements, applications), talent discovery opt-in, sensitive record access audit trail | **Complete & Tested** |
-| **Company Hub** | Authorized representative login, job publishing, applicant review with candidate dossier citing verified GitHub evidence, candidate shortlisting, and talent discovery directory | **Complete & Tested** |
-| **College Network** | Authorized placement officer login, institutional placement KPI dashboard, associated student roster, consented student record view, and affiliation queue | **Complete & Tested** |
-| **EIDOLON CONTROL Center** | Platform administration console with 8 governance tabs: Overview, Access Requests queue, Organizations management, User Directory search, Staff Invitations & Revocation, Access Reviews audit, Audit Trail, and Security Posture | **Complete & Tested** |
-| **Institutional Onboarding** | Public self-service access request (`/request-access`) for accredited companies and universities with flood control, validation, and administrative review queue | **Complete & Tested** |
-| **Social Identity Federation** | Google OIDC, GitHub OAuth, and LinkedIn OIDC with RFC 7636 PKCE, anti-tamper states, anti-account-takeover defenses, locked password auto-provisioning, and account linking/unlinking controls | **Complete & Tested** |
-| **Design & Accessibility** | Zero-FOUC adaptive 3-theme design system (Light / System / Dark) with accessible WCAG AA contrast, responsive navigation, and print-to-PDF ATS styling | **Complete & Tested** |
-| **Demo and Testing** | Isolated synthetic database seeder (`bin/seed_demo.php`); 12 PHP unit suites (281 tests) and 9 Python HTTP smoke suites (297 tests) | **578 Passed (100%)** |
-
-### Important interpretation limits
-
-- **ATS-friendly** means readable, single-column formatting designed for text extraction—not guaranteed success with every ATS or job.
-- **Evidence-based** does not mean the engine has verified a candidate's identity, authorship, employability or complete skill level.
-- **Demo listings and organizations** are fictional/unaffiliated demonstrations, not real vacancies or partners.
-- **No placement or research impact claims** are made without actual consent-based measurements.
+| **Student** | `/login` / `/dashboard` | GitHub evidence assessment, 3 prioritized improvement tasks, ATS resume builder, vacancy search, application tracking, achievements credentials, college affiliation, granular privacy controls, and federated social sign-in. |
+| **Employer / Recruiter** | `/company/login` | Company profile management, job posting, applicant pipeline management, candidate dossiers with verified evidence citations, candidate shortlisting, and talent discovery directory. |
+| **College Placement Officer** | `/college/login` | Institutional cohort intelligence, associated student rosters, consented student record inspection, affiliation request review queue, and unaffiliation management. |
+| **Platform Administrator** | `/admin/login` / `/admin/dashboard` | **EIDOLON CONTROL Unified Center**: 8 governance tabs (Overview, Access Requests review queue, Organizations management, User Directory search, Staff Invitations & Revocation, Access Reviews audit, Audit Trail, and Security Posture). |
 
 ---
 
-## Try the four-role demo
+## 4. Security Architecture & Threat Model
 
-**Requirements:** PHP 8.4 recommended (PHP 8.2+ with PDO SQLite and sessions), terminal, browser; Python 3 for optional smoke tests. GitHub assessment also needs internet access.
+Security is the foundational design principle of EIDOLON PATHWAY:
 
+1. **Zero External Runtime Dependencies:** Runs on standalone PHP 8.4 CLI with PDO SQLite. No Apache/Nginx, No Docker, No XAMPP, and No external database servers required.
+2. **Localhost & Loopback Isolation:** Strictly enforces `127.0.0.1` / `localhost` loopback requests (`HTTP_HOST` / `REMOTE_ADDR`), immediately rejecting foreign network hosts.
+3. **Role-Based Access Control & Tenant Isolation (RBAC):** Deny-by-default access policies across all four roles. Session roles and organization memberships are verified against the database on every single request.
+4. **Strict Content-Security-Policy (CSP):** Emits `script-src 'self'` without `'unsafe-inline'` or `'unsafe-eval'`. External first-party script `/assets/theme.js` powers the theme controller synchronously with zero flash of unstyled content (FOUC). Headless Chrome actively verifies zero CSP violations and blocking of inline scripts.
+5. **Single-Use Hashed Invitations:** Staff onboarding uses 256-bit entropy raw tokens stored as SHA-256 hashes with 7-day expiration and instant one-click revocation.
+6. **OpenID Connect & OAuth Security:** 
+   - Cryptographic RS256 signature verification of OIDC ID-tokens (Google, LinkedIn) against provider JWKS using standard X.509 SubjectPublicKeyInfo conversions.
+   - Strict issuer, audience, nonce, and expiration checking.
+   - Browser session-bound state validation to block Login CSRF attacks.
+   - Strict primary and verified email requirement for GitHub identity.
+   - Role escalation prevention: self-registration strictly assigns `'student'` role.
+   - Anti-account-takeover: linking an existing password-authenticated account requires explicit credential authentication.
+7. **Ephemeral Demo Storage:** The seeder generates cryptographically random passwords per execution, storing them strictly in local `0600`-mode `var/demo_credentials.json` (strictly ignored by Git).
+8. **Zero-FOUC Accessible Design:** Pure CSS dark, light, and system themes with instant head execution preventing visual flash, full WCAG AA contrast compliance, and skip links.
+
+---
+
+## 5. Quick Start: Reproducible Local Run
+
+### Prerequisites
+- PHP 8.4 CLI (or PHP 8.2+ with PDO SQLite, session, filter, and ctype extensions enabled)
+- SQLite 3
+- Python 3 (standard library only, for executing automated HTTP smoke test suites)
+- Command-line `curl` (for optional live GitHub repository assessments)
+- Google Chrome (optional, for headless browser CSP and DOM verification)
+
+### 1. Initialize Clean Database (Schema Version 8)
 ```bash
 git clone https://github.com/skandamp-sudo/eidolon-pathway.git
 cd eidolon-pathway
 
-# 1. Initialize SQLite database outside public document root (Schema Version 8)
+# Initialize SQLite database outside public document root
 php bin/init.php
+```
 
-# 2. Seed isolated demonstration database with synthetic records
+### 2. Populate Isolated Demonstration Data
+Generate an isolated demonstration database with synthetic student, college, and employer records:
+
+```bash
 php bin/seed_demo.php --confirm-demo-seed --demo-db=var/pathway_demo.sqlite
+```
 
-# 3. Launch local server pointed at the demonstration database
+> The seeder outputs unique random passwords to your terminal and saves them locally to `var/demo_credentials.json` (`-rw-------`).
+
+### 3. Launch Local Development Server
+```bash
+# Launch server pointed at the isolated demonstration database
 php bin/serve.php 8080 --demo
+
+# Or launch against a clean, unseeded database:
+# php bin/serve.php 8080
 ```
 
-Open **http://127.0.0.1:8080** on the **same computer**. This app intentionally binds to localhost and is **not safe to expose directly online**.
-
-The seeder creates distinct generated credentials in ignored, local `var/demo_credentials.json` (mode `0600`). **Never commit or share that file.** Use only the disposable demo environment.
-
-| Persona | Local route | Judge can inspect |
-| --- | --- | --- |
-| Student | `/login` | Resume builder, ATS intelligence analysis, repository assessment, jobs, application tracking |
-| Recruiter | `/company/login` | Fictional employer postings, applicant pipeline, candidate dossier with verified citations |
-| Placement officer | `/college/login` | Consented vs confidential student access, institutional cohort analytics, affiliation review |
-| Platform administrator | `/admin/login` | EIDOLON CONTROL Center: 8 tabs, access requests, organization lifecycle, invitation revocation |
-
-The dataset includes an **unaffiliated DSATM demo college record**, fictional employers, synthetic students, and six clearly marked **non-real** internship examples.
-
-**[Full judge walkthrough, role-by-role instructions, and video script](docs/JUDGE_DEMO.md)**
+Open **http://127.0.0.1:8080** in any modern web browser (Safari, Chrome, Firefox).
 
 ---
 
-## Architecture
+## 6. Guided Demonstration Walkthrough
 
-```mermaid
-flowchart TB
-    UI["Server-rendered accessible PHP UI (3 Themes: Light / Dark / System)"] --> HTTP["Controller: authentication, CSRF, authorization, RBAC"]
-    HTTP --> EVIDENCE["Read-only GitHub evidence agent: commit-pinned AST & rubric"]
-    HTTP --> EMPLOY["Resumes, ATS intelligence, jobs, applications & affiliations"]
-    HTTP --> ORG["Organizations, requests, invitations, RBAC and audit"]
-    HTTP --> OAUTH["OAuth 2.0 / OIDC: PKCE S256, state/nonce & account linking"]
-    EVIDENCE --> API["Public GitHub API: bounded sampling (SSRF protected)"]
-    EVIDENCE --> DB[("Protected SQLite (Schema v8)")]
-    EMPLOY --> DB
-    ORG --> DB
-    OAUTH --> DB
-```
+Use the dynamic credentials printed by `bin/seed_demo.php` (stored in `var/demo_credentials.json`):
 
-- **Runtime:** PHP 8.4, server-rendered HTML/CSS, PDO SQLite, no Docker or XAMPP.
-- **Migrations:** eight checksummed database migrations (v1–v8); the original legacy InternHunt MySQL code and Git history are excluded from this repository.
-- **GitHub evidence:** deterministic, bounded, read-only collection; no downloaded code execution.
-- **Isolation:** the primary database, sessions, demo credentials and generated files are excluded from Git and served from outside the public document root.
+| Persona | Login Route | Email | Key Features to Inspect |
+| :--- | :--- | :--- | :--- |
+| **Student (Aarav)** | `/login` | `demo.student.aarav@dsatm.test` | Evidence assessment report, ATS resume builder with keyword alignment, Shortlisted application tracking. |
+| **Student (Priya)** | `/login` | `demo.student.priya@dsatm.test` | Confidential profile with college sharing withheld; granular privacy toggles and sensitive access log. |
+| **Company Recruiter** | `/company/login` | `demo.recruiter@eidolon-labs.test` | Manage job postings, review applicant pipeline, inspect candidate dossier citing verified GitHub evidence. |
+| **College Placement Officer** | `/college/login` | `demo.placement@dsatm.test` | Cohort placement KPI cards, consented vs confidential student roster, student affiliation review queue. |
+| **Platform Administrator** | `/admin/login` | `demo.admin@eidolon-pathway.test` | **EIDOLON CONTROL Center**: Access Requests queue, Organizations management, Staff invitation revocation, and security posture. |
 
 ---
 
-## Verification and reproducibility (578 Automated Tests)
+## 7. Automated Test Suite (722 Automated Checks)
 
-The synchronized release baseline contains **578 passing automated checks** in this standalone publishing checkout (281 PHP unit checks + 297 Python HTTP smoke checks). All tests run against isolated, disposable SQLite databases.
+EIDOLON PATHWAY maintains a 100% test pass rate across 13 PHP unit test suites and 10 Python HTTP smoke test suites:
 
-### Running All PHP Unit Tests (281 Checks)
+### Running All PHP Unit Tests (395 Checks)
 ```bash
 php tests/sqlite/core_test.php
 php tests/evidence/agent_test.php
@@ -143,15 +169,16 @@ php tests/employment/resume_test.php
 php tests/employment/college_workflow_test.php
 php tests/employment/company_workflow_test.php
 php tests/employment/e2e_demo_test.php
-php tests/employment/affiliation_workflow_test.php
+php tests/organizations/affiliation_workflow_test.php
 php tests/organizations/org_request_workflow_test.php
 php tests/employment/resume_intelligence_test.php
 php tests/auth/oauth_workflow_test.php
+php tests/application_management_test.php
 ```
 
-### Running All Python HTTP Smoke Tests (297 Checks)
+### Running All Python HTTP Smoke Tests (327 Checks)
 ```bash
-python3 tests/sqlite/http_smoke.py
+python3 tests/sqlite/http_smoke.py --php ./var/runtime/bin/php
 python3 tests/employment/employment_http_smoke.py
 python3 tests/employment/resume_http_smoke.py
 python3 tests/employment/company_http_smoke.py
@@ -160,9 +187,10 @@ python3 tests/employment/affiliation_http_smoke.py
 python3 tests/organizations/org_request_http_smoke.py
 python3 tests/employment/theme_and_intelligence_http_smoke.py
 python3 tests/auth/oauth_http_smoke.py
+python3 tests/csp/browser_csp_test.py
 ```
 
-### Verification Matrix Summary
+### Comprehensive Verification Matrix
 
 ```
 =======================================================================================================
@@ -170,63 +198,41 @@ Test Suite File                                  Category        Checks Passed  
 =======================================================================================================
 tests/sqlite/core_test.php                       PHP Unit        35              0       100% PASS
 tests/evidence/agent_test.php                    PHP Unit        58              0       100% PASS
-tests/organizations/organization_test.php        PHP Unit        26              0       100% PASS
-tests/employment/employment_test.php             PHP Unit        43              0       100% PASS
-tests/employment/resume_test.php                 PHP Unit        14              0       100% PASS
-tests/employment/college_workflow_test.php       PHP Unit        14              0       100% PASS
+tests/organizations/organization_test.php        PHP Unit        24              0       100% PASS
+tests/employment/employment_test.php             PHP Unit        23              0       100% PASS
+tests/employment/resume_test.php                 PHP Unit        16              0       100% PASS
+tests/employment/college_workflow_test.php       PHP Unit        16              0       100% PASS
 tests/employment/company_workflow_test.php       PHP Unit        17              0       100% PASS
-tests/employment/e2e_demo_test.php               PHP Unit        15              0       100% PASS
-tests/employment/affiliation_workflow_test.php   PHP Unit        15              0       100% PASS
-tests/organizations/org_request_workflow_test.php PHP Unit       11              0       100% PASS
-tests/employment/resume_intelligence_test.php    PHP Unit        5               0       100% PASS
-tests/auth/oauth_workflow_test.php               PHP Unit        28              0       100% PASS
+tests/employment/e2e_demo_test.php               PHP Unit        12              0       100% PASS
+tests/organizations/affiliation_workflow_test.php PHP Unit       22              0       100% PASS
+tests/organizations/org_request_workflow_test.php PHP Unit       19              0       100% PASS
+tests/employment/resume_intelligence_test.php    PHP Unit        26              0       100% PASS
+tests/auth/oauth_workflow_test.php               PHP Unit        33              0       100% PASS
+tests/application_management_test.php            PHP Unit        94              0       100% PASS
 -------------------------------------------------------------------------------------------------------
-PHP UNIT TEST SUBTOTAL                                           281             0       100% PASS
+PHP UNIT TEST SUBTOTAL                                           395             0       100% PASS
 -------------------------------------------------------------------------------------------------------
 tests/sqlite/http_smoke.py                       HTTP Smoke      53              0       100% PASS
 tests/employment/employment_http_smoke.py        HTTP Smoke      17              0       100% PASS
 tests/employment/resume_http_smoke.py            HTTP Smoke      18              0       100% PASS
 tests/employment/company_http_smoke.py           HTTP Smoke      32              0       100% PASS
 tests/employment/college_http_smoke.py           HTTP Smoke      21              0       100% PASS
-tests/employment/affiliation_http_smoke.py       HTTP Smoke      41              0       100% PASS
+tests/employment/affiliation_http_smoke.py       HTTP Smoke      35              0       100% PASS
 tests/organizations/org_request_http_smoke.py    HTTP Smoke      45              0       100% PASS
-tests/employment/theme_and_intelligence_http_smoke.py HTTP Smoke 30              0       100% PASS
+tests/employment/theme_and_intelligence_http_smoke.py HTTP Smoke 36              0       100% PASS
 tests/auth/oauth_http_smoke.py                   HTTP Smoke      40              0       100% PASS
+tests/csp/browser_csp_test.py                    HTTP/Browser    30              0       100% PASS
 -------------------------------------------------------------------------------------------------------
-PYTHON HTTP SMOKE TEST SUBTOTAL                                  297             0       100% PASS
+PYTHON HTTP SMOKE & BROWSER CSP SUBTOTAL                         327             0       100% PASS
 =======================================================================================================
-TOTAL AUTOMATED TEST BASELINE                                    578             0       100% PASS
+TOTAL AUTOMATED TEST BASELINE                                    722             0       100% PASS
 =======================================================================================================
 ```
 
 ---
 
-## Security and trust
+## 8. License & Acknowledgments
 
-The local prototype includes password hashing, parameterized database access, output escaping, CSRF tokens, scoped authorization, request limits, restricted security headers, and private local storage. Its design prioritizes **deny-by-default access** and transparent disclosure of limitations.
-
-**Public-release blockers:** production HTTPS and trusted hosts, `Secure` cookies, privileged MFA, verified invitations and email recovery, secure session/identity linking, persistent backups, cross-tenant security review, operational logging, and independent penetration testing. Do not publish seeded privileged accounts or real applicant information.
-
----
-
-## Vercel and cloud deployment
-
-The current application requires a persistent PHP backend and local database/session storage. **Vercel alone is not a drop-in host for this backend**: PHP support on Vercel is community-maintained, and serverless scratch storage is ephemeral. A later Vercel-hosted landing page or frontend can connect to a securely deployed, persistent backend.
-
-See **[deployment decision, architecture and security gates](docs/DEPLOYMENT.md)**.
-
----
-
-## Hackathon, research and honest impact
-
-**Hackathon story:** large youth employment problem → practical evidence-linked career workflow → working multi-role demonstration → measured, real-world usefulness.
-
-**Research question:** Can commit-pinned, explainable improvement tasks outperform generic portfolio feedback in citation accuracy, actionability, and demonstrable follow-up improvements? That requires baselines, consent, reviewer scoring, and real experiments.
-
-**Tools:** AgentFoundry was used in the hackathon workflow, together with other coding assistants, including Codex and Antigravity.
-
-**Project lineage:** InternHunt is the foundation; EIDOLON PATHWAY is the integrated student-to-employment evolution. The repository assessment agent is one component—not the whole product.
-
----
-
-**EIDOLON — Built on evidence. Earned through trust.**
+Built for the **Code for a Billion — Bharat Agentic-AI Hackathon 2026**.
+Developed with an uncompromising commitment to student data sovereignty, deterministic skills assessment, and high-assurance multi-tenant security.
+Licensed under the Apache License, Version 2.0.

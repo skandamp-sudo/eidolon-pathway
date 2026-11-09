@@ -10,8 +10,9 @@ require_once __DIR__ . '/organizations/organization.php';
 require_once __DIR__ . '/auth/oauth.php';
 ini_set('display_errors', '0');
 header('X-Content-Type-Options: nosniff');
-header('Referrer-Policy: no-referrer');
-header("Content-Security-Policy: default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
+header('X-Frame-Options: DENY');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+header("Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
 header('Cache-Control: no-store');
 
 $screen = 'error';
@@ -82,6 +83,7 @@ try {
         '/auth/unlink' => ['POST'],
         '/logout' => ['POST'],
         '/assets/pathway.css' => ['GET'],
+        '/assets/theme.js' => ['GET'],
     ];
     if (!is_string($path) || !isset($routes[$path])) {
         throw new HttpError(404, 'This route is not available in the local student slice.');
@@ -94,6 +96,11 @@ try {
     if ($path === '/assets/pathway.css') {
         header('Content-Type: text/css; charset=UTF-8');
         readfile(ROOT . '/public/assets/pathway.css');
+        exit;
+    }
+    if ($path === '/assets/theme.js') {
+        header('Content-Type: application/javascript; charset=UTF-8');
+        readfile(ROOT . '/public/assets/theme.js');
         exit;
     }
     if ((int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 8192) {
@@ -610,6 +617,7 @@ try {
             if (!in_array($provider, ['google', 'github', 'linkedin'], true)) {
                 throw new HttpError(400, 'Invalid provider.');
             }
+            $_SESSION['oauth_linking_user_id'] = $userId;
             header('Location: /auth/login/' . $provider . '?link=1', true, 303);
             exit;
         }
@@ -920,9 +928,17 @@ try {
         $linkingUserId = null;
         if (!empty($_GET['link']) && isset($_SESSION['user_id'])) {
             $linkingUserId = (int) $_SESSION['user_id'];
+            if (isset($_SESSION['oauth_linking_user_id']) && (int) $_SESSION['oauth_linking_user_id'] !== $linkingUserId) {
+                throw new HttpError(403, 'Unauthorized identity linking attempt.');
+            }
+            unset($_SESSION['oauth_linking_user_id']);
         }
         try {
             $authUrl = Auth\initiate_oauth_flow($pdo, $provider, $role, $linkingUserId);
+            parse_str(parse_url($authUrl, PHP_URL_QUERY) ?? '', $queryParams);
+            if (!empty($queryParams['state'])) {
+                $_SESSION['oauth_state_' . $provider] = $queryParams['state'];
+            }
             header('Location: ' . $authUrl, true, 303);
             exit;
         } catch (\Throwable $e) {
@@ -951,8 +967,17 @@ try {
             exit;
         }
 
+        // BINDING VERIFICATION: Check session-bound state to block Login CSRF attacks
+        $sessionState = $_SESSION['oauth_state_' . $provider] ?? null;
+        unset($_SESSION['oauth_state_' . $provider]);
+        if (!is_string($sessionState) || !hash_equals($sessionState, $state)) {
+            $_SESSION['flash_error'] = 'Login CSRF detected: authentication session mismatch. Please try again.';
+            header('Location: /login', true, 303);
+            exit;
+        }
+
         try {
-            $authResult = Auth\handle_oauth_callback($pdo, $provider, $state, $code);
+            $authResult = Auth\handle_oauth_callback($pdo, $provider, $state, $code, null, $sessionState);
             if (!session_regenerate_id(true)) {
                 throw new \RuntimeException('Session rotation failed.');
             }

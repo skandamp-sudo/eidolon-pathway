@@ -178,13 +178,13 @@ with tempfile.TemporaryDirectory(prefix='pathway-oauth-http-') as directory:
         check('auth URL contains GitHub client_id', 'github-prod-client-id-5678' in github_auth_url)
         check('auth URL contains code_challenge', 'code_challenge=' in github_auth_url)
 
-        # 8. Tampered state in callback returns graceful failure
+        # 8. Tampered state / Login CSRF in callback returns graceful failure
         status, headers, body = client.request('/auth/callback/google?state=tampered_state_value_12345&code=fake_code')
         check('tampered state callback redirects 303 to /login', status == 303)
         check('redirect target is /login', headers.get('location') == '/login')
 
         status, headers, body = client.request('/login')
-        check('flash error indicates authentication failure', 'Authentication failed' in body)
+        check('flash error indicates Login CSRF mismatch or auth failure', 'Login CSRF detected' in body or 'Authentication failed' in body)
 
         # 9. Cancelled OAuth flow handled cleanly
         status, headers, body = client.request('/auth/callback/google?error=access_denied')
