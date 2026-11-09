@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Pathway;
 
 const ROOT = __DIR__ . '/..';
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 5;
 const APPLICATION_ID = 1347895639;
 
 final class HttpError extends \RuntimeException
@@ -47,11 +47,29 @@ function data_directory(bool $create = false): string
     return (string) realpath($path);
 }
 
-function database(bool $initialize = false): \PDO
+function database(bool $initialize = false, ?string $customPath = null): \PDO
 {
     runtime_check();
     umask(0077);
-    $path = data_directory($initialize) . '/pathway.sqlite';
+    $dataDir = data_directory($initialize);
+    $envPath = getenv('PATHWAY_DATABASE_PATH');
+    if ($customPath !== null) {
+        $path = $customPath;
+    } elseif ($envPath && is_string($envPath) && trim($envPath) !== '') {
+        $trimmed = trim($envPath);
+        $path = str_starts_with($trimmed, '/') ? $trimmed : realpath(ROOT) . '/' . ltrim($trimmed, './');
+    } else {
+        $path = $dataDir . '/pathway.sqlite';
+    }
+
+    if (!str_starts_with($path, '/') || str_contains($path, "\0") || is_link($path)) {
+        throw new \RuntimeException('An absolute, non-symlink database path is required.');
+    }
+    $public = realpath(ROOT . '/public');
+    $resolvedDir = realpath(dirname($path));
+    if ($public && ($resolvedDir === $public || str_starts_with((string) $resolvedDir, $public . '/'))) {
+        throw new \RuntimeException('Database must be outside the public document root.');
+    }
     if (is_link($path) || (!$initialize && !is_file($path))) {
         throw new \RuntimeException('Initialize the local database first.');
     }
@@ -75,7 +93,13 @@ function database(bool $initialize = false): \PDO
 
 function migrations(): array
 {
-    return [1 => __DIR__ . '/migrations/001_student.sql', 2 => __DIR__ . '/migrations/002_evidence.sql'];
+    return [
+        1 => __DIR__ . '/migrations/001_student.sql',
+        2 => __DIR__ . '/migrations/002_evidence.sql',
+        3 => __DIR__ . '/migrations/003_organizations.sql',
+        4 => __DIR__ . '/migrations/004_employment.sql',
+        5 => __DIR__ . '/migrations/005_college.sql',
+    ];
 }
 
 function verify_schema(\PDO $pdo, int $version = SCHEMA_VERSION): void
@@ -97,6 +121,7 @@ function verify_schema(\PDO $pdo, int $version = SCHEMA_VERSION): void
 
 function initialize_database(\PDO $pdo): void
 {
+    $pdo->exec('PRAGMA foreign_keys = OFF');
     $pdo->exec('BEGIN IMMEDIATE');
     try {
         $version = (int) $pdo->query('PRAGMA user_version')->fetchColumn();
@@ -120,6 +145,8 @@ function initialize_database(\PDO $pdo): void
     } catch (\Throwable $error) {
         $pdo->exec('ROLLBACK');
         throw $error;
+    } finally {
+        $pdo->exec('PRAGMA foreign_keys = ON');
     }
 }
 

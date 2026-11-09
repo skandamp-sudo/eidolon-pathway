@@ -4,8 +4,12 @@
 .codenow/
 var/
 *.db
+*.db-*
 *.sqlite
 *.sqlite3
+*.sqlite-*
 *.key
 *.pem
+*credentials*.json
+demo_credentials.json
 config.php
