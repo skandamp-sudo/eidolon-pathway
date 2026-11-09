@@ -1,0 +1,11 @@
+.DS_Store
+.env
+.env.*
+.codenow/
+var/
+*.db
+*.sqlite
+*.sqlite3
+*.key
+*.pem
+config.php
