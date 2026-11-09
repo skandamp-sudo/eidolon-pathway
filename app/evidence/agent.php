@@ -119,7 +119,7 @@ function queue(\PDO $pdo, int $userId, string $repositoryInput, string $roleInpu
  * 5. Generate prioritized improvement tasks.
  * 6. Persist everything to SQLite.
  */
-function run(\PDO $pdo, int $assessmentId): array
+function run(\PDO $pdo, int $assessmentId, ?Transport $transport = null): array
 {
     $row = $pdo->prepare('SELECT id, user_id, repository, target_role, state FROM assessments WHERE id = ?');
     $row->execute([$assessmentId]);
@@ -132,7 +132,7 @@ function run(\PDO $pdo, int $assessmentId): array
     $role = $assessment['target_role'];
 
     $github = new GitHub(
-        new CurlTransport(),
+        $transport ?? new CurlTransport(),
         static function () use ($pdo): void { reserve_budget($pdo); },
         static function (int $until) use ($pdo): void { set_cooldown($pdo, $until); }
     );
@@ -227,7 +227,7 @@ function run(\PDO $pdo, int $assessmentId): array
 function history(\PDO $pdo, int $userId, int $limit = 10): array
 {
     $statement = $pdo->prepare(
-        'SELECT id, repository, target_role, rubric_version, state, commit_sha, error_code, created_at, updated_at
+        'SELECT id, user_id, repository, target_role, rubric_version, state, commit_sha, error_code, created_at, updated_at
          FROM assessments WHERE user_id = ? ORDER BY id DESC LIMIT ?'
     );
     $statement->execute([$userId, $limit]);

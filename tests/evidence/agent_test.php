@@ -303,6 +303,222 @@ run_test('CurlTransport rejects non-GitHub paths', function (): void {
     rejects(fn() => $transport->fetch('https://evil.com/repos/x/y', 1024, microtime(true) + 5), 'invalid_transport_path');
 });
 
+// === MockTransport for offline end-to-end testing ===
+final class MockTransport implements \Pathway\Evidence\Transport
+{
+    /** @var array<string, array{status:int, headers:array, body:string}> */
+    public array $responses = [];
+    public array $calls = [];
+
+    public function fetch(string $resource, int $limit, float $deadline): array
+    {
+        $this->calls[] = $resource;
+        if (!isset($this->responses[$resource])) {
+            return ['status' => 404, 'headers' => [], 'body' => '{"message":"Not Found"}'];
+        }
+        $resp = $this->responses[$resource];
+        if (strlen($resp['body']) > $limit) {
+            throw new \Pathway\Evidence\EvidenceError('response_too_large');
+        }
+        return $resp;
+    }
+
+    public static function createWithFixtures(string $repo, string $commitSha, string $treeSha, array $files): self
+    {
+        $mock = new self();
+        $mock->responses['/repos/' . $repo] = [
+            'status' => 200,
+            'headers' => ['content-type' => 'application/json'],
+            'body' => json_encode(['private' => false, 'visibility' => 'public', 'full_name' => $repo]),
+        ];
+        $mock->responses['/repos/' . $repo . '/commits?per_page=1'] = [
+            'status' => 200,
+            'headers' => ['content-type' => 'application/json'],
+            'body' => json_encode([[
+                'sha' => $commitSha,
+                'commit' => ['tree' => ['sha' => $treeSha]],
+            ]]),
+        ];
+        $treeEntries = [];
+        foreach ($files as $path => $content) {
+            $blobSha = sha1('blob ' . strlen($content) . "\0" . $content);
+            $treeEntries[] = [
+                'path' => $path,
+                'mode' => '100644',
+                'type' => 'blob',
+                'sha' => $blobSha,
+                'size' => strlen($content),
+            ];
+            $mock->responses['/repos/' . $repo . '/git/blobs/' . $blobSha] = [
+                'status' => 200,
+                'headers' => ['content-type' => 'application/vnd.github.raw+json'],
+                'body' => $content,
+            ];
+        }
+        $mock->responses['/repos/' . $repo . '/git/trees/' . $treeSha . '?recursive=1'] = [
+            'status' => 200,
+            'headers' => ['content-type' => 'application/json'],
+            'body' => json_encode([
+                'sha' => $treeSha,
+                'truncated' => false,
+                'tree' => $treeEntries,
+            ]),
+        ];
+        return $mock;
+    }
+}
+
+// === End-to-end offline agent tests ===
+$commitSha = '1111111111111111111111111111111111111111';
+$treeSha   = '2222222222222222222222222222222222222222';
+$mockFiles = [
+    'README.md' => "# Test App\nInstall with php and run tests.\nSetup guide.",
+    'src/Handler.php' => "<?php\nclass Handler {\n    public function route() {\n        \$pdo = new PDO('sqlite::memory:');\n        return \$pdo;\n    }\n}",
+    'tests/HandlerTest.php' => "<?php\nclass HandlerTest {\n    public function testRoute() {\n        assert(true);\n    }\n}",
+    '.github/workflows/ci.yml' => "name: CI\non: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok",
+];
+
+run_test('end-to-end agent run succeeds with mock transport', function () use ($pdo, $userId, $commitSha, $treeSha, $mockFiles): void {
+    $mock = MockTransport::createWithFixtures('octocat/hello-world', $commitSha, $treeSha, $mockFiles);
+    $assessmentId = \Pathway\Evidence\queue($pdo, $userId, 'octocat/hello-world', 'backend');
+    $result = \Pathway\Evidence\run($pdo, $assessmentId, $mock);
+
+    ensure($result['rubric_version'] === \Pathway\Evidence\RUBRIC);
+    ensure($result['repository'] === 'octocat/hello-world');
+    ensure($result['commit_sha'] === $commitSha);
+    ensure($result['target_role'] === 'backend');
+    ensure(count($result['findings']) === 5); // role-source, tests, ci, readme, authorship
+    ensure(count($result['tasks']) === 3);
+
+    // Verify exactly 3 improvement tasks with priorities 1, 2, 3
+    ensure($result['tasks'][0]['priority'] === 1);
+    ensure($result['tasks'][1]['priority'] === 2);
+    ensure($result['tasks'][2]['priority'] === 3);
+    foreach ($result['tasks'] as $t) {
+        ensure(!empty($t['title']) && !empty($t['acceptance']));
+    }
+
+    // Verify citations exist and are commit-pinned
+    $observed = 0;
+    foreach ($result['findings'] as $f) {
+        if ($f['state'] === 'observed' || $f['state'] === 'claimed') {
+            $observed++;
+            ensure(!empty($f['citations']));
+            foreach ($f['citations'] as $cite) {
+                ensure(str_starts_with($cite['url'], 'https://github.com/octocat/hello-world/blob/' . $commitSha . '/'));
+                ensure(str_contains($cite['url'], '#L'));
+                ensure($cite['line'] >= 1);
+            }
+        }
+    }
+    ensure($observed >= 4); // source, tests, ci, readme
+
+    // Verify persistence in SQLite
+    $row = $pdo->prepare('SELECT * FROM assessments WHERE id = ?');
+    $row->execute([$assessmentId]);
+    $persisted = $row->fetch();
+    ensure($persisted['state'] === 'completed');
+    ensure($persisted['commit_sha'] === $commitSha);
+    ensure($persisted['error_code'] === null);
+
+    // Verify detail() retrieval
+    $detail = \Pathway\Evidence\detail($pdo, $assessmentId, $userId);
+    ensure($detail !== null);
+    ensure(count($detail['tasks']) === 3);
+    ensure($detail['result']['commit_sha'] === $commitSha);
+
+    // Verify events log recorded all states
+    $events = $detail['events'];
+    $states = array_column($events, 'state');
+    ensure(in_array('planning', $states, true));
+    ensure(in_array('inspecting', $states, true));
+    ensure(in_array('evaluating', $states, true));
+    ensure(in_array('prioritizing', $states, true));
+    ensure(in_array('persisting', $states, true));
+    ensure(in_array('completed', $states, true));
+});
+
+run_test('end-to-end evaluation is deterministically repeatable', function () use ($pdo, $userId, $commitSha, $treeSha, $mockFiles): void {
+    $mock1 = MockTransport::createWithFixtures('octocat/hello-world', $commitSha, $treeSha, $mockFiles);
+    $mock2 = MockTransport::createWithFixtures('octocat/hello-world', $commitSha, $treeSha, $mockFiles);
+
+    $id1 = \Pathway\Evidence\queue($pdo, $userId, 'octocat/hello-world', 'backend');
+    $res1 = \Pathway\Evidence\run($pdo, $id1, $mock1);
+
+    $id2 = \Pathway\Evidence\queue($pdo, $userId, 'octocat/hello-world', 'backend');
+    $res2 = \Pathway\Evidence\run($pdo, $id2, $mock2);
+
+    ensure($res1['rubric_version'] === $res2['rubric_version']);
+    ensure($res1['commit_sha'] === $res2['commit_sha']);
+    ensure(json_encode($res1['findings']) === json_encode($res2['findings']));
+    ensure(json_encode($res1['tasks']) === json_encode($res2['tasks']));
+});
+
+run_test('agent run fails safely when repository is private', function () use ($pdo, $userId, $commitSha, $treeSha, $mockFiles): void {
+    $mock = MockTransport::createWithFixtures('octocat/hello-world', $commitSha, $treeSha, $mockFiles);
+    // Make repo private
+    $mock->responses['/repos/octocat/hello-world'] = [
+        'status' => 200,
+        'headers' => ['content-type' => 'application/json'],
+        'body' => json_encode(['private' => true, 'visibility' => 'private', 'full_name' => 'octocat/hello-world']),
+    ];
+    $id = \Pathway\Evidence\queue($pdo, $userId, 'octocat/hello-world', 'backend');
+    rejects(fn() => \Pathway\Evidence\run($pdo, $id, $mock), 'public_repository_unavailable');
+
+    $persisted = $pdo->query("SELECT state, error_code FROM assessments WHERE id = $id")->fetch();
+    ensure($persisted['state'] === 'failed');
+    ensure($persisted['error_code'] === 'public_repository_unavailable');
+
+    // Verify student is not locked out of queueing next assessment
+    $nextId = \Pathway\Evidence\queue($pdo, $userId, 'octocat/hello-world', 'backend');
+    ensure($nextId > $id);
+    $pdo->exec("UPDATE assessments SET state = 'failed' WHERE id = $nextId");
+});
+
+run_test('agent run fails safely on empty repository', function () use ($pdo, $userId, $commitSha, $treeSha, $mockFiles): void {
+    $mock = MockTransport::createWithFixtures('octocat/hello-world', $commitSha, $treeSha, $mockFiles);
+    $mock->responses['/repos/octocat/hello-world/commits?per_page=1'] = [
+        'status' => 200,
+        'headers' => ['content-type' => 'application/json'],
+        'body' => json_encode([]),
+    ];
+    $id = \Pathway\Evidence\queue($pdo, $userId, 'octocat/hello-world', 'backend');
+    rejects(fn() => \Pathway\Evidence\run($pdo, $id, $mock), 'empty_repository');
+
+    $persisted = $pdo->query("SELECT state, error_code FROM assessments WHERE id = $id")->fetch();
+    ensure($persisted['state'] === 'failed');
+    ensure($persisted['error_code'] === 'empty_repository');
+});
+
+run_test('agent run fails safely on blob SHA integrity mismatch', function () use ($pdo, $userId, $commitSha, $treeSha, $mockFiles): void {
+    $mock = MockTransport::createWithFixtures('octocat/hello-world', $commitSha, $treeSha, $mockFiles);
+    // Corrupt one blob body
+    foreach ($mock->responses as $path => &$resp) {
+        if (str_contains($path, '/git/blobs/')) {
+            $resp['body'] = 'CORRUPTED CONTENT NOT MATCHING SHA';
+            break;
+        }
+    }
+    unset($resp);
+
+    $id = \Pathway\Evidence\queue($pdo, $userId, 'octocat/hello-world', 'backend');
+    rejects(fn() => \Pathway\Evidence\run($pdo, $id, $mock), 'blob_integrity_mismatch');
+
+    $persisted = $pdo->query("SELECT state, error_code FROM assessments WHERE id = $id")->fetch();
+    ensure($persisted['state'] === 'failed');
+    ensure($persisted['error_code'] === 'blob_integrity_mismatch');
+});
+
+run_test('completed assessment cannot be transitioned to failed', function () use ($pdo): void {
+    $row = $pdo->query("SELECT id FROM assessments WHERE state = 'completed' LIMIT 1")->fetch();
+    ensure($row !== false);
+    $id = (int) $row['id'];
+    \Pathway\Evidence\fail($pdo, $id, 'attempted_failure');
+    $check = $pdo->query("SELECT state, error_code FROM assessments WHERE id = $id")->fetch();
+    ensure($check['state'] === 'completed');
+    ensure($check['error_code'] === null);
+});
+
 // === XSS in repository input ===
 run_test('XSS in repository input rejected', function (): void {
     rejects(fn() => \Pathway\Evidence\repository('<script>alert(1)</script>'), 'invalid_repository');

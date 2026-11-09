@@ -201,16 +201,20 @@ namespace Pathway;
     </table>
   </section>
   <?php else: ?>
-  <section class="notice" aria-labelledby="demo-title">
-    <h2 id="demo-title">No assessments yet</h2>
+  <section class="notice" aria-labelledby="no-assess-title">
+    <h2 id="no-assess-title">No assessments yet</h2>
     <p>Submit your first GitHub repository above to receive evidence-based findings and prioritized improvement tasks.</p>
   </section>
   <?php endif; ?>
 
-  <section class="journey" aria-label="How the assessment agent works">
-    <article><span class="step">01</span><h2>Submit a project</h2><p>Enter a public GitHub repository and your target role. The agent pins the current commit.</p></article>
-    <article><span class="step">02</span><h2>Evidence collection</h2><p>The agent reads README, source, test and CI files using read-only GitHub APIs. No code is executed.</p></article>
-    <article><span class="step">03</span><h2>Results and tasks</h2><p>Review verified observations, documentation claims, and three specific improvement tasks with acceptance criteria.</p></article>
+  <section class="notice" aria-labelledby="demo-title">
+    <h2 id="demo-title">Demonstration content — illustrative, not assessed</h2>
+    <p>The examples below are static product previews. They are not live internships, personal skill assessments, or completed applications.</p>
+  </section>
+  <section class="journey" aria-label="Example student journey">
+    <article><span class="step">01</span><h2>Build your profile</h2><p>Example task: describe one project, your contribution and the problem it solves.</p><span class="badge muted">Not migrated yet</span></article>
+    <article><span class="step">02</span><h2>Explore opportunities</h2><p>Example role: frontend internship. No live job listings are connected in this slice.</p><span class="badge muted">Preview only</span></article>
+    <article><span class="step">03</span><h2>Track your progress</h2><p>Future application tracking will show recorded statuses. No application metrics are available yet.</p><span class="badge muted">Not migrated yet</span></article>
   </section>
 <?php endif; ?>
 </main>

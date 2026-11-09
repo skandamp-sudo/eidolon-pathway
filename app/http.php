@@ -70,6 +70,7 @@ try {
             $user = current_student($pdo);
             $repo = field($_POST, 'repository', 180);
             $role = field($_POST, 'target_role', 20);
+            $assessmentId = null;
             try {
                 $assessmentId = Evidence\queue($pdo, (int) $user['id'], $repo, $role);
                 Evidence\run($pdo, $assessmentId);
@@ -86,9 +87,16 @@ try {
                     'request_budget_exceeded' => 'Assessment budget exhausted. Try again later.',
                     'deadline_exceeded' => 'The assessment timed out. Try again with a smaller repository.',
                     'tree_limit_exceeded' => 'That repository has too many files to assess.',
-                    default => 'Assessment could not complete (' . escape($error->reason) . '). Try again later.',
+                    'blob_integrity_mismatch', 'unsupported_file_encoding' => 'Repository contents could not be verified safely.',
+                    default => 'Assessment could not be completed. Please check the repository and try again.',
                 };
                 $_SESSION['flash_error'] = $friendly;
+            } catch (\Throwable $error) {
+                error_log('pathway.assessment_failed: ' . get_class($error));
+                if ($assessmentId !== null) {
+                    Evidence\fail($pdo, $assessmentId, 'internal_error');
+                }
+                $_SESSION['flash_error'] = 'Assessment could not be completed due to an internal error. Please try again later.';
             }
             header('Location: /dashboard', true, 303);
             exit;
