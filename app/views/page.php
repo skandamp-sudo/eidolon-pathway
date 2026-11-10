@@ -13,7 +13,7 @@ function student_nav(string $screen): void {
         ['resume,resume_preview', '/resume', 'Resume Builder'],
         ['achievements', '/achievements', 'Achievements'],
         ['affiliation_request', '/affiliation/request', 'College Affiliation'],
-        ['privacy_settings,privacy_access_log', '/privacy/settings', 'Privacy &amp; Consent'],
+        ['privacy_settings,privacy_access_log', '/privacy/settings', 'Privacy & Consent'],
     ];
     echo '<nav class="sub-nav no-print" aria-label="Student navigation">';
     foreach ($tabs as [$screens, $href, $label]) {
@@ -913,7 +913,7 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
       </p>
     </div>
     <div class="actions">
-      <button class="button" onclick="window.print()">
+      <button class="button" data-action="print">
         Print / Save to PDF
       </button>
     </div>
@@ -1707,7 +1707,7 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
               <?php endif; ?>
               
               <?php if ($status !== 'shortlisted'): ?>
-              <button class="button" type="submit" name="status" value="shortlisted" class="sm">Shortlist</button>
+              <button class="button sm" type="submit" name="status" value="shortlisted">Shortlist</button>
               <?php endif; ?>
               
               <?php if ($status !== 'rejected'): ?>
@@ -2245,7 +2245,7 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
   <section class="card section-panel border-accent-danger">
     <div class="section-header mb-sm">
       <h2 class="section-title">Pending Access Requests Requiring Review (<?= count($pendingRequests) ?>)</h2>
-      <a class="button secondary" href="/admin/dashboard?tab=requests" class="btn-xs">Open Request Queue &rarr;</a>
+      <a class="button secondary btn-xs" href="/admin/dashboard?tab=requests">Open Request Queue &rarr;</a>
     </div>
     <p class="hint">Review identity and institutional authority before issuing setup invitations.</p>
     <div class="table-container">
@@ -2272,7 +2272,7 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
             <td><code><?= escape($req['contact_email']) ?></code></td>
             <td><?= escape(date('Y-m-d H:i', (int) $req['created_at'])) ?></td>
             <td>
-              <a class="button" href="/admin/dashboard?tab=requests" class="btn-xs">Review</a>
+              <a class="button btn-xs" href="/admin/dashboard?tab=requests">Review</a>
             </td>
           </tr>
           <?php endforeach; ?>
@@ -2309,7 +2309,7 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
               <form action="/admin/organizations/approve" method="post" class="inline-form">
                 <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
                 <input type="hidden" name="organization_id" value="<?= (int) $org['id'] ?>">
-                <button class="button" type="submit" class="sm">Approve &amp; Activate</button>
+                <button class="button sm" type="submit">Approve &amp; Activate</button>
               </form>
             </td>
           </tr>
@@ -2428,8 +2428,8 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
                 <input type="hidden" name="request_id" value="<?= (int) $req['id'] ?>">
                 <input name="review_notes" placeholder="Review notes (optional)" maxlength="500" class="input-sm">
                 <div class="actions">
-                  <button class="button" type="submit" name="decision" value="APPROVE" class="btn-xs btn-approve flex-1">Approve</button>
-                  <button class="button secondary" type="submit" name="decision" value="REJECT" class="btn-xs btn-danger-outline flex-1">Reject</button>
+                  <button class="button btn-xs btn-approve flex-1" type="submit" name="decision" value="APPROVE">Approve</button>
+                  <button class="button secondary btn-xs btn-danger-outline flex-1" type="submit" name="decision" value="REJECT">Reject</button>
                 </div>
               </form>
               <?php else: ?>
@@ -2500,7 +2500,7 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
               <form action="/admin/organizations/approve" method="post" class="inline-form">
                 <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
                 <input type="hidden" name="organization_id" value="<?= (int) $org['id'] ?>">
-                <button class="button" type="submit" class="sm">Approve</button>
+                <button class="button sm" type="submit">Approve</button>
               </form>
               <?php elseif ($org['status'] === 'ACTIVE'): ?>
               <form action="/admin/organizations/suspend" method="post" class="inline-form actions">
@@ -2867,7 +2867,7 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
         Enrolled as <?= escape($profile['degree'] ?: 'Student') ?> (<?= escape($profile['department'] ?: 'Engineering') ?>) &middot; USN/Roll: <code><?= escape($profile['enrollment_number'] ?: 'N/A') ?></code> &middot; Class of <?= escape((string)($profile['graduation_year'] ?: 'N/A')) ?>.
       </p>
       <div class="mt-md">
-        <a class="button secondary" href="/privacy/settings" class="btn-sm">Manage Privacy &amp; Sharing Permissions &rarr;</a>
+        <a class="button secondary btn-sm" href="/privacy/settings">Manage Privacy &amp; Sharing Permissions &rarr;</a>
       </div>
     <?php elseif ($status === 'PENDING'): ?>
       <div class="badge-group">
@@ -2930,7 +2930,7 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
         <textarea id="verification_note" name="verification_note" rows="3" maxlength="1000" placeholder="Add any additional context for placement cell coordinators..."></textarea>
       </div>
 
-      <button class="button" type="submit" class="aff-submit">
+      <button class="button aff-submit" type="submit">
         Submit Affiliation Request
       </button>
     </form>
@@ -2981,7 +2981,7 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
               <form action="/affiliation/cancel" method="post" class="inline-form">
                 <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
                 <input type="hidden" name="request_id" value="<?= (int) $req['id'] ?>">
-                <button class="button secondary" type="submit" class="btn-xs btn-danger-outline">Cancel</button>
+                <button class="button secondary btn-xs btn-danger-outline" type="submit">Cancel</button>
               </form>
               <?php else: ?>
               <span class="text-muted">&mdash;</span>
@@ -3074,8 +3074,8 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
                 <input type="hidden" name="request_id" value="<?= (int) $r['id'] ?>">
                 <input type="text" name="reason" placeholder="Audit verification note..." class="btn-xs full-width" required>
                 <div class="actions">
-                  <button class="button" type="submit" name="decision" value="APPROVED" class="btn-xs btn-approve">Approve</button>
-                  <button class="button secondary" type="submit" name="decision" value="REJECTED" class="btn-xs btn-danger-outline">Decline</button>
+                  <button class="button btn-xs btn-approve" type="submit" name="decision" value="APPROVED">Approve</button>
+                  <button class="button secondary btn-xs btn-danger-outline" type="submit" name="decision" value="REJECTED">Decline</button>
                 </div>
               </form>
               <?php else: ?>
@@ -3194,7 +3194,7 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
   <section class="card section-panel">
     <div class="section-header">
       <h2 class="section-title">Recent Access Audit Events</h2>
-      <a class="button secondary" href="/privacy/access-log" class="btn-sm">View Complete Audit Trail &rarr;</a>
+      <a class="button secondary btn-sm" href="/privacy/access-log">View Complete Audit Trail &rarr;</a>
     </div>
     <p class="text-detail mb-md">
       Immutable audit logs recording every external attempt by college staff or recruiters to inspect your sensitive records.
@@ -3276,10 +3276,10 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
             <td><?= escape($ident['provider_email'] ?? '—') ?></td>
             <td class="text-detail"><?= escape(date('Y-m-d H:i', (int) $ident['created_at'])) ?></td>
             <td>
-              <form action="/auth/unlink" method="post" class="inline-form" onsubmit="return confirm('Unlink this social identity?');">
+              <form action="/auth/unlink" method="post" class="inline-form" data-confirm="Unlink this social identity? You will no longer be able to sign in with this provider.">
                 <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
                 <input type="hidden" name="provider" value="<?= escape($ident['provider']) ?>">
-                <button class="button secondary" type="submit" class="btn-sm btn-danger-text">Unlink</button>
+                <button class="button secondary btn-sm btn-danger-text" type="submit">Unlink</button>
               </form>
             </td>
           </tr>
@@ -3305,7 +3305,7 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
         <form action="/auth/link" method="post" class="inline-form">
           <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
           <input type="hidden" name="provider" value="<?= escape($p) ?>">
-          <button class="button secondary" type="submit" class="btn-sm">
+          <button class="button secondary btn-sm" type="submit">
             Link <?= escape(ucfirst($p)) ?> Account
           </button>
         </form>
@@ -3325,7 +3325,7 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
   </section>
 
   <div class="mb-md">
-    <a class="button secondary" href="/privacy/settings" class="btn-sm">&larr; Return to Privacy Settings</a>
+    <a class="button secondary btn-sm" href="/privacy/settings">&larr; Return to Privacy Settings</a>
   </div>
 
   <section class="card section-panel">
@@ -3493,7 +3493,7 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
         <form action="/achievements/delete" method="post" class="inline-form">
           <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
           <input type="hidden" name="id" value="<?= (int) $ach['id'] ?>">
-          <button class="button secondary" type="submit" class="btn-xs btn-danger-outline">Remove</button>
+          <button class="button secondary btn-xs btn-danger-outline" type="submit">Remove</button>
         </form>
       </div>
       <?php endforeach; ?>
@@ -3517,9 +3517,9 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
   <div class="card card-padded">
     <form action="/company/talent" method="get" class="search-bar">
       <input type="text" name="q" value="<?= escape($searchQuery ?? '') ?>" placeholder="Search by skill (e.g. Python, React, Go) or degree program..." class="search-input">
-      <button class="button" type="submit" class="btn-action">Search Candidates</button>
+      <button class="button btn-action" type="submit">Search Candidates</button>
       <?php if (!empty($searchQuery)): ?>
-      <a class="button secondary" href="/company/talent" class="btn-action-sm">Clear Filter</a>
+      <a class="button secondary btn-action-sm" href="/company/talent">Clear Filter</a>
       <?php endif; ?>
     </form>
   </div>
@@ -3613,10 +3613,10 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
       <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
       <input type="hidden" name="application_id" value="<?= (int) ($app['application_id'] ?? 0) ?>">
       <?php if (($app['status'] ?? '') !== 'shortlisted'): ?>
-      <button class="button" type="submit" name="status" value="shortlisted" class="btn-sm btn-approve">Shortlist Candidate</button>
+      <button class="button btn-sm btn-approve" type="submit" name="status" value="shortlisted">Shortlist Candidate</button>
       <?php endif; ?>
       <?php if (($app['status'] ?? '') !== 'rejected'): ?>
-      <button class="button secondary" type="submit" name="status" value="rejected" class="btn-sm btn-danger-outline">Decline Application</button>
+      <button class="button secondary btn-sm btn-danger-outline" type="submit" name="status" value="rejected">Decline Application</button>
       <?php endif; ?>
     </form>
   </div>
@@ -3741,7 +3741,7 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
 
 <footer class="container" role="contentinfo">
   <div>EIDOLON PATHWAY &middot; Verifiable Skills &amp; Evidence Architecture</div>
-  <div>Local-First Prototype &middot; Standalone PHP 8.4 + SQLite v4 &middot; Zero Code Execution</div>
+  <div>Local-First Prototype &middot; Standalone PHP 8.4 + SQLite v<?= SCHEMA_VERSION ?> &middot; Zero Code Execution</div>
 </footer>
 
 </body>
