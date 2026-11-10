@@ -1180,3 +1180,31 @@ footer.container {
     border: 1px solid #d1d5db !important;
   }
 }
+
+/* EIDOLON — Accessible checkbox and radio controls */
+input[type="checkbox"],
+input[type="radio"] {
+  box-sizing: border-box;
+  width: 18px;
+  min-width: 18px;
+  max-width: 18px;
+  height: 18px;
+  padding: 0;
+  margin: 2px 0 0;
+  flex: 0 0 18px;
+  accent-color: var(--emerald-500);
+  cursor: pointer;
+}
+
+label:has(> input[type="checkbox"]) > span,
+label:has(> input[type="radio"]) > span {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+}
+
+/* Improve muted-text readability in dark mode */
+:root,
+html[data-theme="dark"] {
+  --text-muted: #a5b4cc;
+}
