@@ -4,7 +4,7 @@
 
 EIDOLON PATHWAY is an open-source, security-first career-readiness, verified skills, and institutional placement prototype evolved from **InternHunt**. It is architected as a self-contained, reproducible software prototype for the **Code for a Billion — Bharat Agentic-AI Hackathon 2026**, directly addressing youth employability, institutional friction, and credential integrity.
 
-> **Project Status:** Mission 009.1 — Complete Hotfix Release: Authentication, OpenID Connect & Content Security Policy (CSP). Contains the complete standalone EIDOLON PATHWAY application with 4 distinct role portals, self-service institutional onboarding, unified governance administration, deterministic GitHub portfolio evidence assessment, ATS resume intelligence with keyword alignment, granular student privacy sovereignty, adaptive 3-theme design with zero FOUC, and standards-compliant OAuth 2.0 / OpenID Connect federation. **722 automated tests pass directly against this checkout with zero external server dependencies.**
+> **Project Status:** Mission 010.1 — QA Release Freeze. Production-quality UI/UX overhaul with zero inline event handlers, strict `script-src 'self'` CSP compliance, and accurate regression accounting. Contains the complete standalone EIDOLON PATHWAY application with 4 distinct role portals, self-service institutional onboarding, unified governance administration, deterministic GitHub portfolio evidence assessment, ATS resume intelligence with keyword alignment, granular student privacy sovereignty, adaptive 3-theme design with zero FOUC, and standards-compliant OAuth 2.0 / OpenID Connect federation. **619 automated checks pass directly against this checkout with zero external server dependencies.**
 >
 > **Prototype Notice:** EIDOLON PATHWAY is a locally tested prototype and reference architecture for hackathon evaluation. Demonstration colleges (e.g. DSATM), employer organizations, vacancies, and candidate profiles are entirely synthetic test fixtures for reproducible demonstration. The portfolio assessment evaluates observable repository structures and practices deterministically; it is an educational feedback and evidence-structuring tool, not an autonomous hiring decision-maker.
 
@@ -155,11 +155,49 @@ Use the dynamic credentials printed by `bin/seed_demo.php` (stored in `var/demo_
 
 ---
 
-## 7. Automated Test Suite (722 Automated Checks)
+## 6.1. Platform Screenshots
 
-EIDOLON PATHWAY maintains a 100% test pass rate across 13 PHP unit test suites and 10 Python HTTP smoke test suites:
+> All screenshots are captured from the live demonstration environment using Chrome headless. The application ships with both **light** and **dark** themes and responsive mobile layouts.
 
-### Running All PHP Unit Tests (395 Checks)
+### Login & Onboarding
+
+| Light Theme | Dark Theme |
+| :---: | :---: |
+| ![Student Login — Light](docs/images/01-login-light.png) | ![Student Login — Dark](docs/images/02-login-dark.png) |
+
+### Student Portal
+
+| Evidence Dashboard (Light) | Evidence Dashboard (Dark) |
+| :---: | :---: |
+| ![Student Dashboard — Light](docs/images/03-student-dashboard-light.png) | ![Student Dashboard — Dark](docs/images/04-student-dashboard-dark.png) |
+
+| Browse Jobs | ATS Resume Builder |
+| :---: | :---: |
+| ![Browse Jobs](docs/images/05-student-jobs.png) | ![Resume Builder](docs/images/06-student-resume.png) |
+
+| Privacy & Consent Controls (Dark) | Mobile Layout (Dark, 375px) |
+| :---: | :---: |
+| ![Privacy Controls — Dark](docs/images/07-student-privacy-dark.png) | ![Mobile Dashboard](docs/images/12-mobile-dark.png) |
+
+### Company Recruitment Hub
+
+| Company Dashboard (Dark) | Candidate Review & Shortlist |
+| :---: | :---: |
+| ![Company Dashboard — Dark](docs/images/08-company-dashboard-dark.png) | ![Applicant Pipeline](docs/images/09-company-applicants.png) |
+
+### College Placement Network & Platform Administration
+
+| College Dashboard (Dark) | EIDOLON CONTROL Center (Dark) |
+| :---: | :---: |
+| ![College Dashboard — Dark](docs/images/10-college-dashboard-dark.png) | ![Admin Dashboard — Dark](docs/images/11-admin-dashboard-dark.png) |
+
+---
+
+## 7. Automated Test Suite (619 Automated Checks)
+
+EIDOLON PATHWAY maintains a 100% test pass rate across 12 PHP unit test suites and 10 Python HTTP smoke test suites:
+
+### Running All PHP Unit Tests (286 Checks)
 ```bash
 php tests/sqlite/core_test.php
 php tests/evidence/agent_test.php
@@ -169,25 +207,24 @@ php tests/employment/resume_test.php
 php tests/employment/college_workflow_test.php
 php tests/employment/company_workflow_test.php
 php tests/employment/e2e_demo_test.php
-php tests/organizations/affiliation_workflow_test.php
+php tests/employment/affiliation_workflow_test.php
 php tests/organizations/org_request_workflow_test.php
 php tests/employment/resume_intelligence_test.php
 php tests/auth/oauth_workflow_test.php
-php tests/application_management_test.php
 ```
 
-### Running All Python HTTP Smoke Tests (327 Checks)
+### Running All Python HTTP Smoke Tests (333 Checks)
 ```bash
 python3 tests/sqlite/http_smoke.py --php ./var/runtime/bin/php
-python3 tests/employment/employment_http_smoke.py
-python3 tests/employment/resume_http_smoke.py
-python3 tests/employment/company_http_smoke.py
-python3 tests/employment/college_http_smoke.py
-python3 tests/employment/affiliation_http_smoke.py
-python3 tests/organizations/org_request_http_smoke.py
-python3 tests/employment/theme_and_intelligence_http_smoke.py
-python3 tests/auth/oauth_http_smoke.py
-python3 tests/csp/browser_csp_test.py
+python3 tests/employment/employment_http_smoke.py --php ./var/runtime/bin/php
+python3 tests/employment/resume_http_smoke.py --php ./var/runtime/bin/php
+python3 tests/employment/company_http_smoke.py --php ./var/runtime/bin/php
+python3 tests/employment/college_http_smoke.py --php ./var/runtime/bin/php
+python3 tests/employment/affiliation_http_smoke.py --php ./var/runtime/bin/php
+python3 tests/organizations/org_request_http_smoke.py --php ./var/runtime/bin/php
+python3 tests/employment/theme_and_intelligence_http_smoke.py --php ./var/runtime/bin/php
+python3 tests/auth/oauth_http_smoke.py --php ./var/runtime/bin/php
+python3 tests/csp/browser_csp_test.py --php ./var/runtime/bin/php
 ```
 
 ### Comprehensive Verification Matrix
@@ -198,36 +235,37 @@ Test Suite File                                  Category        Checks Passed  
 =======================================================================================================
 tests/sqlite/core_test.php                       PHP Unit        35              0       100% PASS
 tests/evidence/agent_test.php                    PHP Unit        58              0       100% PASS
-tests/organizations/organization_test.php        PHP Unit        24              0       100% PASS
-tests/employment/employment_test.php             PHP Unit        23              0       100% PASS
-tests/employment/resume_test.php                 PHP Unit        16              0       100% PASS
-tests/employment/college_workflow_test.php       PHP Unit        16              0       100% PASS
+tests/organizations/organization_test.php        PHP Unit        26              0       100% PASS
+tests/employment/employment_test.php             PHP Unit        43              0       100% PASS
+tests/employment/resume_test.php                 PHP Unit        14              0       100% PASS
+tests/employment/college_workflow_test.php       PHP Unit        14              0       100% PASS
 tests/employment/company_workflow_test.php       PHP Unit        17              0       100% PASS
-tests/employment/e2e_demo_test.php               PHP Unit        12              0       100% PASS
-tests/organizations/affiliation_workflow_test.php PHP Unit       22              0       100% PASS
-tests/organizations/org_request_workflow_test.php PHP Unit       19              0       100% PASS
-tests/employment/resume_intelligence_test.php    PHP Unit        26              0       100% PASS
+tests/employment/e2e_demo_test.php               PHP Unit        15              0       100% PASS
+tests/employment/affiliation_workflow_test.php   PHP Unit        15              0       100% PASS
+tests/organizations/org_request_workflow_test.php PHP Unit       11              0       100% PASS
+tests/employment/resume_intelligence_test.php    PHP Unit        5               0       100% PASS
 tests/auth/oauth_workflow_test.php               PHP Unit        33              0       100% PASS
-tests/application_management_test.php            PHP Unit        94              0       100% PASS
 -------------------------------------------------------------------------------------------------------
-PHP UNIT TEST SUBTOTAL                                           395             0       100% PASS
+PHP UNIT TEST SUBTOTAL                                           286             0       100% PASS
 -------------------------------------------------------------------------------------------------------
 tests/sqlite/http_smoke.py                       HTTP Smoke      53              0       100% PASS
 tests/employment/employment_http_smoke.py        HTTP Smoke      17              0       100% PASS
 tests/employment/resume_http_smoke.py            HTTP Smoke      18              0       100% PASS
 tests/employment/company_http_smoke.py           HTTP Smoke      32              0       100% PASS
 tests/employment/college_http_smoke.py           HTTP Smoke      21              0       100% PASS
-tests/employment/affiliation_http_smoke.py       HTTP Smoke      35              0       100% PASS
+tests/employment/affiliation_http_smoke.py       HTTP Smoke      41              0       100% PASS
 tests/organizations/org_request_http_smoke.py    HTTP Smoke      45              0       100% PASS
 tests/employment/theme_and_intelligence_http_smoke.py HTTP Smoke 36              0       100% PASS
 tests/auth/oauth_http_smoke.py                   HTTP Smoke      40              0       100% PASS
 tests/csp/browser_csp_test.py                    HTTP/Browser    30              0       100% PASS
 -------------------------------------------------------------------------------------------------------
-PYTHON HTTP SMOKE & BROWSER CSP SUBTOTAL                         327             0       100% PASS
+PYTHON HTTP SMOKE & BROWSER CSP SUBTOTAL                         333             0       100% PASS
 =======================================================================================================
-TOTAL AUTOMATED TEST BASELINE                                    722             0       100% PASS
+TOTAL AUTOMATED TEST BASELINE                                    619             0       100% PASS
 =======================================================================================================
 ```
+
+> **Excluded suites:** `tests/application_management_test.php` (legacy InternHunt dependency not present in PATHWAY checkout); `tests/evidence/live_github_test.php` (requires network access to GitHub API).
 
 ---
 
