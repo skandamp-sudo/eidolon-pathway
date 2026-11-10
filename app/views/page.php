@@ -1,6 +1,79 @@
 <?php
 declare(strict_types=1);
 namespace Pathway;
+
+// Role sub-navigation components (reusable)
+
+function student_nav(string $screen): void {
+    $tabs = [
+        ['dashboard,assessment', '/dashboard', 'Evidence Dashboard'],
+        ['jobs,job_detail', '/jobs', 'Browse Jobs'],
+        ['applications', '/applications', 'My Applications'],
+        ['profile', '/profile', 'My Profile'],
+        ['resume,resume_preview', '/resume', 'Resume Builder'],
+        ['achievements', '/achievements', 'Achievements'],
+        ['affiliation_request', '/affiliation/request', 'College Affiliation'],
+        ['privacy_settings,privacy_access_log', '/privacy/settings', 'Privacy &amp; Consent'],
+    ];
+    echo '<nav class="sub-nav no-print" aria-label="Student navigation">';
+    foreach ($tabs as [$screens, $href, $label]) {
+        $active = in_array($screen, explode(',', $screens)) ? ' active' : '';
+        echo "<a class=\"nav-role-tab{$active}\" href=\"{$href}\">" . htmlspecialchars($label, ENT_QUOTES|ENT_HTML5) . "</a>";
+    }
+    echo '</nav>';
+}
+
+function company_nav(string $screen): void {
+    $tabs = [
+        ['company_dashboard', '/company/dashboard', 'Company Overview'],
+        ['company_job_form', '/company/jobs/new', '+ Post New Position'],
+        ['company_applicants,company_candidate', '/company/applicants', 'Candidate Review'],
+        ['company_talent', '/company/talent', 'Talent Discovery'],
+    ];
+    echo '<nav class="sub-nav no-print" aria-label="Company navigation">';
+    foreach ($tabs as [$screens, $href, $label]) {
+        $active = in_array($screen, explode(',', $screens)) ? ' active' : '';
+        echo "<a class=\"nav-role-tab{$active}\" href=\"{$href}\">" . htmlspecialchars($label, ENT_QUOTES|ENT_HTML5) . "</a>";
+    }
+    echo '</nav>';
+}
+
+function college_nav(string $screen): void {
+    $tabs = [
+        ['college_dashboard,college_student_detail', '/college/dashboard', 'Campus Placement Intelligence'],
+        ['college_affiliations', '/college/affiliations', 'Affiliation Review Queue'],
+    ];
+    echo '<nav class="sub-nav no-print" aria-label="College navigation">';
+    foreach ($tabs as [$screens, $href, $label]) {
+        $active = in_array($screen, explode(',', $screens)) ? ' active' : '';
+        echo "<a class=\"nav-role-tab{$active}\" href=\"{$href}\">" . htmlspecialchars($label, ENT_QUOTES|ENT_HTML5) . "</a>";
+    }
+    echo '</nav>';
+}
+
+function admin_nav(string $activeTab, array $pendingRequests = []): void {
+    $tabs = [
+        ['overview', '/admin/dashboard?tab=overview', 'Overview'],
+        ['requests', '/admin/dashboard?tab=requests', 'Access Requests'],
+        ['orgs', '/admin/dashboard?tab=orgs', 'Organizations'],
+        ['users', '/admin/dashboard?tab=users', 'User Directory'],
+        ['invitations', '/admin/dashboard?tab=invitations', 'Invitations'],
+        ['access_reviews', '/admin/dashboard?tab=access_reviews', 'Access Reviews'],
+        ['audit', '/admin/dashboard?tab=audit', 'Audit Trail'],
+        ['security', '/admin/dashboard?tab=security', 'Security Posture'],
+    ];
+    echo '<nav class="sub-nav no-print" aria-label="Admin navigation">';
+    foreach ($tabs as [$tab, $href, $label]) {
+        $active = ($activeTab === $tab) ? ' active' : '';
+        $badge = '';
+        if ($tab === 'requests' && !empty($pendingRequests)) {
+            $count = count($pendingRequests);
+            $badge = " <span class=\"badge badge-count\">{$count}</span>";
+        }
+        echo "<a class=\"nav-role-tab{$active}\" href=\"{$href}\">" . htmlspecialchars($label, ENT_QUOTES|ENT_HTML5) . "{$badge}</a>";
+    }
+    echo '</nav>';
+}
 ?>
 <!doctype html>
 <html lang="en">
@@ -58,9 +131,9 @@ namespace Pathway;
     </div>
     <span class="environment-tag">Local Pilot</span>
     <?php if ($user !== null): ?>
-    <form action="/logout" method="post" style="margin:0;display:inline;">
+    <form action="/logout" method="post" class="inline-form">
       <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
-      <button class="button secondary" type="submit" style="padding:7px 14px;font-size:0.85rem;">Sign out</button>
+      <button class="button secondary sm" type="submit">Sign out</button>
     </form>
     <?php endif; ?>
   </div>
@@ -68,11 +141,11 @@ namespace Pathway;
 
 <main id="main" class="container" role="main">
 <?php if ($screen === 'error'): ?>
-  <section class="auth-panel" aria-labelledby="error-title" style="max-width:540px;margin:40px auto;">
+  <section class="auth-panel panel-narrow" aria-labelledby="error-title">
     <p class="eyebrow">Request Not Completed</p>
-    <h1 id="error-title" style="font-size:1.8rem;">Let's get you back on track.</h1>
-    <p role="alert" style="color:var(--rose-400);margin:16px 0;"><?= escape($message) ?></p>
-    <div style="display:flex;gap:14px;margin-top:20px;">
+    <h1 id="error-title" class="heading-lg">Let's get you back on track.</h1>
+    <p role="alert" class="text-danger"><?= escape($message) ?></p>
+    <div class="actions">
       <a class="button" href="/login">Return to sign in</a>
       <a class="button secondary" href="/register">Create an account</a>
     </div>
@@ -90,7 +163,7 @@ namespace Pathway;
         <p>This prototype demonstrates student account lifecycle, SQLite storage isolation, and bounded GitHub evidence extraction. Job listings and external applications are simulated demonstrations.</p>
       </div>
 
-      <div style="margin-top:24px;display:flex;gap:18px;flex-wrap:wrap;">
+      <div class="badge-group">
         <span class="badge">&#x2713; Zero Code Execution</span>
         <span class="badge">&#x2713; Read-Only Analysis</span>
         <span class="badge">&#x2713; Commit-Pinned Citations</span>
@@ -129,7 +202,7 @@ namespace Pathway;
           <p class="hint" id="password-help">Use 12–72 bytes. Choose a password you do not use elsewhere.</p>
         </div>
 
-        <button class="button" type="submit" style="margin-top:8px;">
+        <button class="button" type="submit">
           <?= $screen === 'register' ? 'Create student account' : 'Sign in' ?>
         </button>
       </form>
@@ -208,7 +281,7 @@ namespace Pathway;
 
   <!-- Prioritized Actionable Improvement Roadmap -->
   <?php if (!empty($assessment['tasks'])): ?>
-  <section aria-labelledby="roadmap-title" style="margin:36px 0;">
+  <section aria-labelledby="roadmap-title" class="section-panel">
     <p class="eyebrow">Actionable Pathway</p>
     <h2 id="roadmap-title">Prioritized Improvement Roadmap</h2>
     <p>Targeted milestones generated from sampled code evidence to strengthen your engineering portfolio.</p>
@@ -218,7 +291,7 @@ namespace Pathway;
       <article class="task-card">
         <span class="task-priority-badge">Priority <?= (int) $task['priority'] ?> · <?= (int) $task['priority'] === 1 ? 'High Impact' : ((int) $task['priority'] === 2 ? 'Recommended' : 'Next Step') ?></span>
         <h3><?= escape($task['title']) ?></h3>
-        <p style="font-size:0.88rem;color:var(--text-secondary);"><?= escape($task['reason']) ?></p>
+        <p class="text-secondary text-sm"><?= escape($task['reason']) ?></p>
         <div class="task-acceptance">
           <strong>Acceptance Criteria</strong>
           <?= escape($task['acceptance']) ?>
@@ -231,7 +304,7 @@ namespace Pathway;
 
   <!-- Evidence Findings & Citations -->
   <?php if (!empty($assessment['result']['findings'])): ?>
-  <section aria-labelledby="findings-title" style="margin:36px 0;">
+  <section aria-labelledby="findings-title" class="section-panel">
     <p class="eyebrow">Sampled Code Evidence</p>
     <h2 id="findings-title">Evidence Observations &amp; Claims</h2>
     <p>Each observation is tied to static lexical patterns in sampled files. Unobserved signals indicate absence in the inspected sample, not repository-wide proof.</p>
@@ -265,7 +338,7 @@ namespace Pathway;
       <p><?= escape($finding['explanation']) ?></p>
       
       <?php if (!empty($finding['citations'])): ?>
-      <div style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-top:12px;">Verified Line Citations:</div>
+      <div class="citation-label">Verified Line Citations:</div>
       <ul class="citation-list">
         <?php foreach ($finding['citations'] as $cite): ?>
         <li>
@@ -283,27 +356,18 @@ namespace Pathway;
 
   <!-- Disclaimers & Limits -->
   <?php if (!empty($assessment['result']['limitations'])): ?>
-  <section class="notice" aria-labelledby="limits-title" style="margin:32px 0;">
+  <section class="notice" aria-labelledby="limits-title">
     <h2 id="limits-title">Verification boundaries &amp; disclaimers</h2>
-    <ul style="margin:8px 0 0;padding-left:20px;font-size:0.88rem;color:var(--text-secondary);">
+    <ul class="limitations-list">
       <?php foreach ($assessment['result']['limitations'] as $limitation): ?>
-      <li style="margin:4px 0;"><?= escape($limitation) ?></li>
+      <li><?= escape($limitation) ?></li>
       <?php endforeach; ?>
     </ul>
   </section>
   <?php endif; ?>
 
 <?php elseif ($screen === 'profile'): ?>
-  <div class="student-nav no-print" style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;overflow-x:auto;">
-    <a class="nav-role-tab <?= $screen === 'dashboard' || $screen === 'assessment' ? 'active' : '' ?>" href="/dashboard">Evidence Dashboard</a>
-    <a class="nav-role-tab <?= $screen === 'jobs' || $screen === 'job_detail' ? 'active' : '' ?>" href="/jobs">Browse Jobs</a>
-    <a class="nav-role-tab <?= $screen === 'applications' ? 'active' : '' ?>" href="/applications">My Applications</a>
-    <a class="nav-role-tab <?= $screen === 'profile' ? 'active' : '' ?>" href="/profile">My Profile</a>
-    <a class="nav-role-tab <?= $screen === 'resume' || $screen === 'resume_preview' ? 'active' : '' ?>" href="/resume">Resume Builder</a>
-    <a class="nav-role-tab <?= $screen === 'achievements' ? 'active' : '' ?>" href="/achievements">Achievements</a>
-    <a class="nav-role-tab <?= $screen === 'affiliation_request' ? 'active' : '' ?>" href="/affiliation/request">College Affiliation</a>
-    <a class="nav-role-tab <?= $screen === 'privacy_settings' || $screen === 'privacy_access_log' ? 'active' : '' ?>" href="/privacy/settings">Privacy &amp; Consent</a>
-  </div>
+  <?php student_nav($screen); ?>
 
   <section class="hero">
     <p class="eyebrow">Student Portal · Career Profile</p>
@@ -322,13 +386,13 @@ namespace Pathway;
   <div class="notice success" role="status"><p><?= escape($flashSuccess) ?></p></div>
   <?php endif; ?>
 
-  <div class="auth-panel" style="max-width:760px;margin-bottom:40px;">
+  <div class="auth-panel panel-medium">
     <form action="/profile" method="post">
       <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
 
       <div class="form-group">
         <label>Account Identity</label>
-        <p style="margin:4px 0 12px;font-size:0.95rem;color:var(--text-secondary);">
+        <p class="text-secondary">
           <strong><?= escape($user['name']) ?></strong> &middot; <?= escape($user['email']) ?>
         </p>
       </div>
@@ -354,12 +418,12 @@ namespace Pathway;
       </div>
       <?php endif; ?>
 
-      <div class="form-group" style="background:var(--bg-surface);padding:14px;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);margin:16px 0;">
-        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-weight:600;">
-          <input type="checkbox" name="college_share_consent" value="1" <?= !empty($profile['college_share_consent']) ? 'checked' : '' ?> style="margin-top:3px;">
+      <div class="form-group consent-block">
+        <label class="consent-label">
+          <input type="checkbox" name="college_share_consent" value="1" <?= !empty($profile['college_share_consent']) ? 'checked' : '' ?> >
           <span>
             Authorize College Placement Cell Access
-            <span style="display:block;font-size:0.8rem;color:var(--text-muted);font-weight:400;margin-top:4px;">
+            <span class="consent-sub">
               When checked, authorized placement officers at your associated college can view your verified skills, resumes, and internship application outcomes. When unchecked, your profile and application history remain completely confidential.
             </span>
           </span>
@@ -384,23 +448,14 @@ namespace Pathway;
         <p class="hint">Used for linking verified assessment evidence to job applications.</p>
       </div>
 
-      <button class="button" type="submit" style="align-self:flex-start;margin-top:12px;">
+      <button class="button" type="submit">
         Save Profile
       </button>
     </form>
   </div>
 
 <?php elseif ($screen === 'jobs'): ?>
-  <div class="student-nav no-print" style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;overflow-x:auto;">
-    <a class="nav-role-tab" href="/dashboard">Evidence Dashboard</a>
-    <a class="nav-role-tab active" href="/jobs">Browse Jobs</a>
-    <a class="nav-role-tab" href="/applications">My Applications</a>
-    <a class="nav-role-tab" href="/profile">My Profile</a>
-    <a class="nav-role-tab" href="/resume">Resume Builder</a>
-    <a class="nav-role-tab" href="/achievements">Achievements</a>
-    <a class="nav-role-tab" href="/affiliation/request">College Affiliation</a>
-    <a class="nav-role-tab" href="/privacy/settings">Privacy &amp; Consent</a>
-  </div>
+  <?php student_nav($screen); ?>
 
   <section class="hero">
     <p class="eyebrow">Employment Opportunities · Verified Companies</p>
@@ -408,13 +463,13 @@ namespace Pathway;
     <p>Every role is posted by an administrator-approved active company. Zero fabricated listings.</p>
   </section>
 
-  <div class="auth-panel" style="margin-bottom:32px;padding:20px 24px;">
-    <form action="/jobs" method="get" style="flex-direction:row;flex-wrap:wrap;align-items:flex-end;gap:16px;">
-      <div class="form-group" style="flex:1;min-width:220px;">
+  <div class="auth-panel filter-panel">
+    <form action="/jobs" method="get" class="filter-bar">
+      <div class="form-group filter-field-grow">
         <label for="q">Keyword or Tech Stack</label>
         <input id="q" name="q" value="<?= escape($searchQuery ?? '') ?>" placeholder="e.g. SQLite, React, Backend">
       </div>
-      <div class="form-group" style="width:200px;">
+      <div class="form-group filter-field-fixed">
         <label for="category">Role Category</label>
         <select id="category" name="category">
           <option value="all" <?= ($selectedCategory ?? '') === 'all' ? 'selected' : '' ?>>All Categories</option>
@@ -424,58 +479,49 @@ namespace Pathway;
           <option value="general" <?= ($selectedCategory ?? '') === 'general' ? 'selected' : '' ?>>General</option>
         </select>
       </div>
-      <button class="button" type="submit" style="padding:11px 20px;">Filter Positions</button>
+      <button class="button" type="submit">Filter Positions</button>
       <?php if (!empty($searchQuery) || ($selectedCategory ?? 'all') !== 'all'): ?>
-      <a class="button secondary" href="/jobs" style="padding:11px 16px;">Reset</a>
+      <a class="button secondary" href="/jobs">Reset</a>
       <?php endif; ?>
     </form>
   </div>
 
   <?php if (!empty($jobs)): ?>
-  <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(340px, 1fr));gap:20px;margin-bottom:40px;">
+  <div class="job-grid">
     <?php foreach ($jobs as $j): ?>
-    <article class="task-card" style="padding:22px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+    <article class="job-card">
+      <div class="job-card-header">
         <span class="badge badge-observed">&#x2713; <?= escape($j['company_name']) ?></span>
         <span class="badge muted"><?= escape(ucfirst($j['role_category'])) ?></span>
       </div>
-      <h3 style="font-size:1.15rem;margin:8px 0 4px;"><?= escape($j['title']) ?></h3>
-      <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:12px;">Location: <?= escape($j['location']) ?></p>
-      <p style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:16px;flex:1;">
+      <h3 class="job-card-title"><?= escape($j['title']) ?></h3>
+      <p class="job-location">Location: <?= escape($j['location']) ?></p>
+      <p class="job-description">
         <?= escape(strlen($j['description']) > 160 ? substr($j['description'], 0, 157) . '...' : $j['description']) ?>
       </p>
-      <div style="margin-bottom:16px;">
-        <span style="font-size:0.75rem;font-weight:700;text-transform:uppercase;color:var(--text-muted);">Required Skills:</span>
-        <p style="font-size:0.85rem;color:var(--emerald-400);margin:4px 0 0;font-family:var(--font-mono);"><?= escape($j['skills']) ?></p>
+      <div class="job-skills-section">
+        <span class="job-skills-label">Required Skills:</span>
+        <p class="job-skills-value"><?= escape($j['skills']) ?></p>
       </div>
-      <a class="button secondary" href="/jobs/view?id=<?= (int) $j['id'] ?>" style="margin-top:auto;text-align:center;">
+      <a class="button secondary full-width" href="/jobs/view?id=<?= (int) $j['id'] ?>">
         View Position &amp; Apply &rarr;
       </a>
     </article>
     <?php endforeach; ?>
   </div>
   <?php else: ?>
-  <div class="notice" style="margin:24px 0;">
+  <div class="notice">
     <h2>No active job listings match your filters</h2>
     <p>Try resetting the search terms or check back as verified employers post new opportunities.</p>
   </div>
   <?php endif; ?>
 
 <?php elseif ($screen === 'job_detail'): ?>
-  <div class="student-nav no-print" style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;overflow-x:auto;">
-    <a class="nav-role-tab" href="/dashboard">Evidence Dashboard</a>
-    <a class="nav-role-tab active" href="/jobs">Browse Jobs</a>
-    <a class="nav-role-tab" href="/applications">My Applications</a>
-    <a class="nav-role-tab" href="/profile">My Profile</a>
-    <a class="nav-role-tab" href="/resume">Resume Builder</a>
-    <a class="nav-role-tab" href="/achievements">Achievements</a>
-    <a class="nav-role-tab" href="/affiliation/request">College Affiliation</a>
-    <a class="nav-role-tab" href="/privacy/settings">Privacy &amp; Consent</a>
-  </div>
+  <?php student_nav($screen); ?>
 
-  <p style="margin-bottom:16px;"><a href="/jobs">&larr; Return to job listings</a></p>
+  <p class="mb-md"><a href="/jobs">&larr; Return to job listings</a></p>
 
-  <section class="hero" style="padding-top:4px;">
+  <section class="hero">
     <p class="eyebrow">Verified Company Position</p>
     <h1><?= escape($job['title']) ?></h1>
     <p>Posted by <strong><?= escape($job['company_name']) ?></strong> &middot; <?= escape($job['location']) ?></p>
@@ -508,32 +554,32 @@ namespace Pathway;
     </div>
   </div>
 
-  <div class="auth-panel" style="margin-bottom:32px;">
-    <h2 style="font-size:1.2rem;margin-bottom:12px;">Position Description</h2>
-    <div style="font-size:0.95rem;line-height:1.7;color:var(--text-secondary);white-space:pre-wrap;"><?= escape($job['description']) ?></div>
+  <div class="auth-panel section-panel">
+    <h2 class="section-title">Position Description</h2>
+    <div class="description-body"><?= escape($job['description']) ?></div>
 
-    <div style="margin-top:24px;padding-top:18px;border-top:1px solid var(--border-subtle);">
-      <h3 style="font-size:0.95rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:8px;">Required Competencies:</h3>
+    <div class="section-divider">
+      <h3 class="citation-label">Required Competencies:</h3>
       <code><?= escape($job['skills']) ?></code>
     </div>
   </div>
 
-  <div class="auth-panel" style="margin-bottom:40px;">
+  <div class="auth-panel section-panel">
     <?php if ($existingApplication): ?>
-    <div class="notice success" style="margin:0;">
+    <div class="notice success">
       <h2>Application Already Submitted</h2>
-      <p style="margin-top:6px;">
+      <p class="mt-xs">
         You applied for this position on <strong><?= escape(date('Y-m-d H:i', (int) $existingApplication['created_at'])) ?></strong>.
       </p>
-      <div style="margin-top:12px;display:flex;align-items:center;gap:12px;">
+      <div class="actions mt-sm">
         <span class="badge <?= $existingApplication['status'] === 'shortlisted' ? 'badge-observed' : ($existingApplication['status'] === 'rejected' ? 'badge-failed' : 'muted') ?>">
           Current Status: <?= escape(ucfirst($existingApplication['status'])) ?>
         </span>
-        <a href="/applications" style="font-size:0.88rem;font-weight:700;">View application tracking &rarr;</a>
+        <a href="/applications" class="text-link">View application tracking &rarr;</a>
       </div>
     </div>
     <?php else: ?>
-    <h2 style="font-size:1.25rem;margin-bottom:6px;">Submit Application</h2>
+    <h2 class="section-title">Submit Application</h2>
     <p class="lead">Submit your application to <?= escape($job['company_name']) ?>. Your verified profile and GitHub evidence will be shared with the hiring team.</p>
 
     <form action="/jobs/apply" method="post">
@@ -546,7 +592,7 @@ namespace Pathway;
         <p class="hint">Up to 1,000 characters.</p>
       </div>
 
-      <button class="button" type="submit" style="align-self:flex-start;margin-top:8px;">
+      <button class="button" type="submit">
         Submit Application
       </button>
     </form>
@@ -554,16 +600,7 @@ namespace Pathway;
   </div>
 
 <?php elseif ($screen === 'applications'): ?>
-  <div class="student-nav no-print" style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;overflow-x:auto;">
-    <a class="nav-role-tab" href="/dashboard">Evidence Dashboard</a>
-    <a class="nav-role-tab" href="/jobs">Browse Jobs</a>
-    <a class="nav-role-tab active" href="/applications">My Applications</a>
-    <a class="nav-role-tab" href="/profile">My Profile</a>
-    <a class="nav-role-tab" href="/resume">Resume Builder</a>
-    <a class="nav-role-tab" href="/achievements">Achievements</a>
-    <a class="nav-role-tab" href="/affiliation/request">College Affiliation</a>
-    <a class="nav-role-tab" href="/privacy/settings">Privacy &amp; Consent</a>
-  </div>
+  <?php student_nav($screen); ?>
 
   <section class="hero">
     <p class="eyebrow">Student Portal · Status Tracking</p>
@@ -585,6 +622,7 @@ namespace Pathway;
   <?php if (!empty($applications)): ?>
   <div class="table-container">
     <table>
+      <caption class="sr-only">Job application history</caption>
       <thead>
         <tr>
           <th>Application</th>
@@ -624,24 +662,15 @@ namespace Pathway;
     </table>
   </div>
   <?php else: ?>
-  <div class="notice" style="margin:24px 0;">
+  <div class="notice">
     <h2>No applications submitted yet</h2>
     <p>Browse our active job listings and submit your first verified application.</p>
-    <p style="margin-top:12px;"><a class="button secondary" href="/jobs">Explore Available Opportunities &rarr;</a></p>
+    <p class="mt-sm"><a class="button secondary" href="/jobs">Explore Available Opportunities &rarr;</a></p>
   </div>
   <?php endif; ?>
 
 <?php elseif ($screen === 'resume'): ?>
-  <div class="student-nav no-print" style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;overflow-x:auto;">
-    <a class="nav-role-tab" href="/dashboard">Evidence Dashboard</a>
-    <a class="nav-role-tab" href="/jobs">Browse Jobs</a>
-    <a class="nav-role-tab" href="/applications">My Applications</a>
-    <a class="nav-role-tab" href="/profile">My Profile</a>
-    <a class="nav-role-tab active" href="/resume">Resume Builder</a>
-    <a class="nav-role-tab" href="/achievements">Achievements</a>
-    <a class="nav-role-tab" href="/affiliation/request">College Affiliation</a>
-    <a class="nav-role-tab" href="/privacy/settings">Privacy &amp; Consent</a>
-  </div>
+  <?php student_nav($screen); ?>
 
   <section class="hero no-print">
     <p class="eyebrow">Student Portal · Smart Resume Builder</p>
@@ -662,17 +691,17 @@ namespace Pathway;
 
   <!-- Draft Selector Bar -->
   <?php if (!empty($allResumes)): ?>
-  <div class="no-print" style="display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap;align-items:center;">
-    <span style="font-size:0.85rem;color:var(--text-muted);font-weight:600;">Saved Drafts:</span>
+  <div class="no-print draft-selector">
+    <span class="draft-label">Saved Drafts:</span>
     <?php foreach ($allResumes as $r): ?>
-    <a class="button <?= ($resume !== null && (int)$resume['id'] === (int)$r['id']) ? '' : 'secondary' ?>" style="padding:6px 14px;font-size:0.85rem;" href="/resume?id=<?= (int) $r['id'] ?>">
+    <a class="button <?= ($resume !== null && (int)$resume['id'] === (int)$r['id']) ? '' : 'secondary' ?> sm" href="/resume?id=<?= (int) $r['id'] ?>">
       <?= escape($r['title']) ?>
     </a>
     <?php endforeach; ?>
-    <a class="button secondary" style="padding:6px 14px;font-size:0.85rem;" href="/resume">+ New Draft</a>
+    <a class="button secondary sm" href="/resume">+ New Draft</a>
 
     <?php if ($resume !== null): ?>
-    <a class="button" style="margin-left:auto;padding:7px 16px;background:var(--emerald-600);color:#fff;font-weight:700;" href="/resume/preview?id=<?= (int) $resume['id'] ?>" target="_blank">
+    <a class="button accent" href="/resume/preview?id=<?= (int) $resume['id'] ?>" target="_blank">
       View ATS Print / PDF Layout &nearr;
     </a>
     <?php endif; ?>
@@ -686,10 +715,10 @@ namespace Pathway;
     <?php endif; ?>
 
     <!-- Document Title & Assessment Evidence Linker -->
-    <div class="auth-panel" style="margin-bottom:24px;">
-      <h2 style="font-size:1.2rem;margin-bottom:16px;">1. Resume Identity &amp; Evidence Citation</h2>
+    <div class="auth-panel section-panel">
+      <h2 class="section-title">1. Resume Identity &amp; Evidence Citation</h2>
       
-      <div class="form-group" style="margin-bottom:16px;">
+      <div class="form-group">
         <label for="title">Resume Title / Target Profile</label>
         <input id="title" name="title" maxlength="100" value="<?= escape($resume['title'] ?? 'Software Engineering Resume') ?>" required>
         <p class="hint">Identifier for this resume version (e.g. Backend Specialist Resume 2026).</p>
@@ -710,10 +739,10 @@ namespace Pathway;
     </div>
 
     <!-- Professional Summary & Skills -->
-    <div class="auth-panel" style="margin-bottom:24px;">
-      <h2 style="font-size:1.2rem;margin-bottom:16px;">2. Professional Summary &amp; Competencies</h2>
+    <div class="auth-panel section-panel">
+      <h2 class="section-title">2. Professional Summary &amp; Competencies</h2>
 
-      <div class="form-group" style="margin-bottom:16px;">
+      <div class="form-group">
         <label for="summary">Professional Summary</label>
         <textarea id="summary" name="summary" rows="4" maxlength="2000" placeholder="A concise 2-4 sentence summary of your engineering background, core strengths, and career focus..."><?= escape($resume['summary'] ?? ($profile['bio'] ?? '')) ?></textarea>
         <p class="hint">Up to 2,000 characters.</p>
@@ -735,9 +764,9 @@ namespace Pathway;
     </div>
 
     <!-- Education Entries -->
-    <div class="auth-panel" style="margin-bottom:24px;">
-      <h2 style="font-size:1.2rem;margin-bottom:8px;">3. Education</h2>
-      <p class="hint" style="margin-bottom:16px;">Add your university, degree, and expected graduation year.</p>
+    <div class="auth-panel section-panel">
+      <h2 class="section-title">3. Education</h2>
+      <p class="hint">Add your university, degree, and expected graduation year.</p>
 
       <?php
         $eduRows = $resume['education'] ?? [];
@@ -751,24 +780,24 @@ namespace Pathway;
       ?>
 
       <?php foreach ($eduRows as $i => $edu): ?>
-      <div style="background:var(--bg-surface);padding:14px;border-radius:var(--radius-sm);margin-bottom:14px;border:1px solid var(--border-subtle);">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+      <div class="entry-block">
+        <div class="form-grid">
           <div class="form-group">
-            <label style="font-size:0.8rem;">Institution / College</label>
+            <label class="label-sm">Institution / College</label>
             <input name="education_institution[]" maxlength="150" value="<?= escape($edu['institution'] ?? '') ?>" placeholder="e.g. Stanford University">
           </div>
           <div class="form-group">
-            <label style="font-size:0.8rem;">Degree / Major</label>
+            <label class="label-sm">Degree / Major</label>
             <input name="education_degree[]" maxlength="150" value="<?= escape($edu['degree'] ?? '') ?>" placeholder="e.g. B.S. in Computer Science">
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-grid">
           <div class="form-group">
-            <label style="font-size:0.8rem;">Years (e.g. 2022 – 2026)</label>
+            <label class="label-sm">Years (e.g. 2022 – 2026)</label>
             <input name="education_year[]" maxlength="50" value="<?= escape($edu['year'] ?? '') ?>" placeholder="2022 – 2026">
           </div>
           <div class="form-group">
-            <label style="font-size:0.8rem;">GPA (Optional)</label>
+            <label class="label-sm">GPA (Optional)</label>
             <input name="education_gpa[]" maxlength="20" value="<?= escape($edu['gpa'] ?? '') ?>" placeholder="e.g. 3.9 / 4.0">
           </div>
         </div>
@@ -777,9 +806,9 @@ namespace Pathway;
     </div>
 
     <!-- Experience Entries -->
-    <div class="auth-panel" style="margin-bottom:24px;">
-      <h2 style="font-size:1.2rem;margin-bottom:8px;">4. Work &amp; Internship Experience</h2>
-      <p class="hint" style="margin-bottom:16px;">Highlight responsibilities, measurable contributions, and technical achievements.</p>
+    <div class="auth-panel section-panel">
+      <h2 class="section-title">4. Work &amp; Internship Experience</h2>
+      <p class="hint">Highlight responsibilities, measurable contributions, and technical achievements.</p>
 
       <?php
         $expRows = $resume['experience'] ?? [];
@@ -793,29 +822,29 @@ namespace Pathway;
       ?>
 
       <?php foreach ($expRows as $i => $exp): ?>
-      <div style="background:var(--bg-surface);padding:14px;border-radius:var(--radius-sm);margin-bottom:14px;border:1px solid var(--border-subtle);">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+      <div class="entry-block">
+        <div class="form-grid">
           <div class="form-group">
-            <label style="font-size:0.8rem;">Organization / Company</label>
+            <label class="label-sm">Organization / Company</label>
             <input name="experience_company[]" maxlength="150" value="<?= escape($exp['company'] ?? '') ?>" placeholder="e.g. Acme Corp">
           </div>
           <div class="form-group">
-            <label style="font-size:0.8rem;">Position Title</label>
+            <label class="label-sm">Position Title</label>
             <input name="experience_role[]" maxlength="150" value="<?= escape($exp['role'] ?? '') ?>" placeholder="e.g. Backend Engineering Intern">
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+        <div class="form-grid">
           <div class="form-group">
-            <label style="font-size:0.8rem;">Start Date</label>
+            <label class="label-sm">Start Date</label>
             <input name="experience_start[]" maxlength="50" value="<?= escape($exp['start_date'] ?? '') ?>" placeholder="e.g. May 2025">
           </div>
           <div class="form-group">
-            <label style="font-size:0.8rem;">End Date</label>
+            <label class="label-sm">End Date</label>
             <input name="experience_end[]" maxlength="50" value="<?= escape($exp['end_date'] ?? '') ?>" placeholder="e.g. August 2025 or Present">
           </div>
         </div>
         <div class="form-group">
-          <label style="font-size:0.8rem;">Bullet Points / Description (one per line)</label>
+          <label class="label-sm">Bullet Points / Description (one per line)</label>
           <textarea name="experience_desc[]" rows="3" maxlength="1000" placeholder="Built scalable SQLite data ingestion service&#10;Reduced query response times by 35%"><?= escape($exp['description'] ?? '') ?></textarea>
         </div>
       </div>
@@ -823,9 +852,9 @@ namespace Pathway;
     </div>
 
     <!-- Projects Entries -->
-    <div class="auth-panel" style="margin-bottom:32px;">
-      <h2 style="font-size:1.2rem;margin-bottom:8px;">5. Projects &amp; Open Source</h2>
-      <p class="hint" style="margin-bottom:16px;">List key repositories, applications, or systems you have built.</p>
+    <div class="auth-panel section-panel">
+      <h2 class="section-title">5. Projects &amp; Open Source</h2>
+      <p class="hint">List key repositories, applications, or systems you have built.</p>
 
       <?php
         $projRows = $resume['projects'] ?? [];
@@ -839,31 +868,31 @@ namespace Pathway;
       ?>
 
       <?php foreach ($projRows as $i => $proj): ?>
-      <div style="background:var(--bg-surface);padding:14px;border-radius:var(--radius-sm);margin-bottom:14px;border:1px solid var(--border-subtle);">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+      <div class="entry-block">
+        <div class="form-grid">
           <div class="form-group">
-            <label style="font-size:0.8rem;">Project Name</label>
+            <label class="label-sm">Project Name</label>
             <input name="project_name[]" maxlength="150" value="<?= escape($proj['name'] ?? '') ?>" placeholder="e.g. EIDOLON PATHWAY">
           </div>
           <div class="form-group">
-            <label style="font-size:0.8rem;">Tech Stack</label>
+            <label class="label-sm">Tech Stack</label>
             <input name="project_tech[]" maxlength="200" value="<?= escape($proj['technologies'] ?? '') ?>" placeholder="e.g. PHP 8.4, SQLite, CSS3">
           </div>
         </div>
-        <div class="form-group" style="margin-bottom:10px;">
-          <label style="font-size:0.8rem;">Project Bullets / Description (one per line)</label>
+        <div class="form-group">
+          <label class="label-sm">Project Bullets / Description (one per line)</label>
           <textarea name="project_desc[]" rows="2" maxlength="1000" placeholder="Architected zero-dependency evidence inspection pipeline&#10;Achieved 100% test coverage across 300+ assertions"><?= escape($proj['description'] ?? '') ?></textarea>
         </div>
         <div class="form-group">
-          <label style="font-size:0.8rem;">Repository or Live Link</label>
+          <label class="label-sm">Repository or Live Link</label>
           <input name="project_link[]" maxlength="200" value="<?= escape($proj['link'] ?? '') ?>" placeholder="e.g. https://github.com/octocat/project">
         </div>
       </div>
       <?php endforeach; ?>
     </div>
 
-    <div style="display:flex;gap:14px;align-items:center;">
-      <button class="button" type="submit" style="padding:12px 28px;">
+    <div class="actions">
+      <button class="button" type="submit">
         Save Resume Draft
       </button>
       <?php if ($resume !== null && !empty($resume['id'])): ?>
@@ -876,15 +905,15 @@ namespace Pathway;
 
 <?php elseif ($screen === 'resume_preview'): ?>
   <!-- Control Bar (hidden during browser print) -->
-  <div class="no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;background:var(--bg-secondary);padding:16px 20px;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);">
+  <div class="no-print control-bar">
     <div>
-      <a href="/resume?id=<?= (int) $resume['id'] ?>" style="font-weight:700;">&larr; Return to Resume Editor</a>
-      <p style="margin:4px 0 0;font-size:0.85rem;color:var(--text-muted);">
+      <a href="/resume?id=<?= (int) $resume['id'] ?>" class="text-link-bold">&larr; Return to Resume Editor</a>
+      <p class="control-sub">
         Single-column ATS format &middot; Clean print/PDF layout &middot; Zero untrusted scripts
       </p>
     </div>
-    <div style="display:flex;gap:12px;">
-      <button class="button" onclick="window.print()" style="padding:9px 20px;">
+    <div class="actions">
+      <button class="button" onclick="window.print()">
         Print / Save to PDF
       </button>
     </div>
@@ -892,24 +921,24 @@ namespace Pathway;
 
   <?php if (!empty($atsAnalysis)): ?>
   <!-- ATS Intelligence & Match Benchmark (no-print) -->
-  <section class="card no-print" style="margin-bottom:28px;border-left:4px solid var(--emerald-500);">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:16px;">
+  <section class="card no-print ats-panel">
+    <div class="ats-header">
       <div>
-        <p class="eyebrow" style="margin-bottom:4px;">Evidence-Grounded Resume Intelligence</p>
-        <h2 style="font-size:1.3rem;margin:0;">ATS Parser Analysis &amp; Keyword Alignment</h2>
+        <p class="eyebrow">Evidence-Grounded Resume Intelligence</p>
+        <h2 class="section-title">ATS Parser Analysis &amp; Keyword Alignment</h2>
       </div>
-      <div style="text-align:right;">
-        <span style="font-size:2rem;font-weight:750;color:var(--emerald-400);"><?= (int) ($atsAnalysis['overall_score'] ?? 0) ?></span>
-        <span style="font-size:1rem;color:var(--text-muted);">/ 100</span>
+      <div class="ats-score">
+        <span class="ats-score-value"><?= (int) ($atsAnalysis['overall_score'] ?? 0) ?></span>
+        <span class="ats-score-max">/ 100</span>
         <div><span class="badge badge-observed"><?= escape($atsAnalysis['rating'] ?? 'ATS Analysis') ?></span></div>
       </div>
     </div>
 
     <!-- Active Job Benchmark Form -->
-    <form action="/resume/preview" method="get" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px;background:var(--bg-secondary);padding:12px;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);">
+    <form action="/resume/preview" method="get" class="benchmark-form">
       <input type="hidden" name="id" value="<?= (int) $resume['id'] ?>">
-      <label for="benchmark-job" style="font-size:0.85rem;font-weight:600;">Benchmark Against Vacancy:</label>
-      <select id="benchmark-job" name="job_id" style="flex:1;min-width:200px;padding:6px 10px;font-size:0.85rem;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-subtle);border-radius:6px;">
+      <label for="benchmark-job" class="label-sm">Benchmark Against Vacancy:</label>
+      <select id="benchmark-job" name="job_id" class="benchmark-select">
         <option value="">General Industry Standard (<?= escape(strtoupper($atsAnalysis['target_role'] ?? 'Backend')) ?>)</option>
         <?php foreach ($activeJobs ?? [] as $aj): ?>
         <option value="<?= (int) $aj['id'] ?>" <?= ((int)($targetJob['id'] ?? 0) === (int)$aj['id']) ? 'selected' : '' ?>>
@@ -917,45 +946,45 @@ namespace Pathway;
         </option>
         <?php endforeach; ?>
       </select>
-      <button class="button secondary" type="submit" style="padding:6px 14px;font-size:0.85rem;">Analyze Match</button>
+      <button class="button secondary sm" type="submit">Analyze Match</button>
     </form>
 
     <!-- Checklist Breakdown -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:16px;">
+    <div class="ats-checklist">
       <?php foreach ($atsAnalysis['checks'] ?? [] as $chk): ?>
-      <div style="border:1px solid var(--border-subtle);padding:10px 14px;border-radius:var(--radius-sm);background:var(--bg-card);">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-          <strong style="font-size:0.85rem;"><?= escape($chk['category']) ?></strong>
-          <span style="font-size:0.8rem;color:<?= $chk['passed'] ? 'var(--emerald-400)' : 'var(--rose-400)' ?>;">
+      <div class="ats-check-item">
+        <div class="ats-check-header">
+          <strong class="text-sm"><?= escape($chk['category']) ?></strong>
+          <span class="ats-check-score <?= $chk['passed'] ? 'text-emerald' : 'text-danger' ?>">
             <?= (int) $chk['score'] ?> / <?= (int) $chk['max'] ?>
           </span>
         </div>
-        <p style="font-size:0.75rem;color:var(--text-secondary);margin:0;line-height:1.4;"><?= escape($chk['feedback']) ?></p>
+        <p class="ats-check-feedback"><?= escape($chk['feedback']) ?></p>
       </div>
       <?php endforeach; ?>
     </div>
 
     <!-- Keyword Alignment -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;">
+    <div class="ats-keywords">
       <div>
-        <h4 style="font-size:0.85rem;margin-bottom:6px;color:var(--emerald-400);">&#10003; Matched Industry Keywords</h4>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <h4 class="keyword-heading matched">&#10003; Matched Industry Keywords</h4>
+        <div class="keyword-tags">
           <?php foreach ($atsAnalysis['matched_keywords'] ?? [] as $mkw): ?>
-          <span class="badge" style="font-size:0.75rem;background:var(--bg-secondary);"><?= escape($mkw) ?></span>
+          <span class="badge keyword-tag"><?= escape($mkw) ?></span>
           <?php endforeach; ?>
         </div>
       </div>
       <div>
-        <h4 style="font-size:0.85rem;margin-bottom:6px;color:var(--text-muted);">&#x25C7; Recommended Skills for <?= escape(strtoupper($atsAnalysis['target_role'] ?? 'Role')) ?></h4>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <h4 class="keyword-heading suggested">&#x25C7; Recommended Skills for <?= escape(strtoupper($atsAnalysis['target_role'] ?? 'Role')) ?></h4>
+        <div class="keyword-tags">
           <?php foreach ($atsAnalysis['suggested_keywords'] ?? [] as $skw): ?>
-          <span class="badge muted" style="font-size:0.75rem;"><?= escape($skw) ?></span>
+          <span class="badge muted keyword-tag"><?= escape($skw) ?></span>
           <?php endforeach; ?>
         </div>
       </div>
     </div>
 
-    <p style="font-size:0.75rem;color:var(--text-muted);margin:0;line-height:1.4;">
+    <p class="ats-disclaimer">
       <em>Notice: ATS analysis provides transparent rule-based guidance to help structure technical qualifications. Never include keywords for skills you do not possess. No system can guarantee shortlisting.</em>
     </p>
   </section>
@@ -980,7 +1009,7 @@ namespace Pathway;
     <?php if (!empty($resume['summary'])): ?>
     <section class="resume-section">
       <h2 class="resume-section-title">Professional Summary</h2>
-      <p style="margin:0;font-size:0.92rem;color:#374151;line-height:1.6;"><?= escape($resume['summary']) ?></p>
+      <p class="resume-summary-text"><?= escape($resume['summary']) ?></p>
     </section>
     <?php endif; ?>
 
@@ -1033,7 +1062,7 @@ namespace Pathway;
         <div class="resume-item-header">
           <span><?= escape($proj['name']) ?></span>
           <?php if (!empty($proj['technologies'])): ?>
-          <span style="font-weight:400;font-size:0.85rem;color:#4b5563;">[<?= escape($proj['technologies']) ?>]</span>
+          <span class="resume-project-tech">[<?= escape($proj['technologies']) ?>]</span>
           <?php endif; ?>
         </div>
         <?php if (!empty($proj['link'])): ?>
@@ -1100,15 +1129,15 @@ namespace Pathway;
         </div>
 
         <?php if (!empty($resume['assessment_tasks'])): ?>
-        <div style="margin-top:8px;">
-          <strong style="font-size:0.82rem;text-transform:uppercase;color:#475569;display:block;margin-bottom:4px;">
+        <div class="resume-milestones">
+          <strong class="citation-label">
             Verified Milestone Outcomes from Inspected Lexical Samples:
           </strong>
-          <ul style="margin:0;padding-left:18px;font-size:0.85rem;color:#334155;">
+          <ul class="resume-evidence-list">
             <?php foreach ($resume['assessment_tasks'] as $task): ?>
-            <li style="margin-bottom:3px;">
+            <li>
               <strong>Priority <?= (int) $task['priority'] ?>:</strong> <?= escape($task['title']) ?>
-              &mdash; <span style="color:#64748b;"><?= escape($task['acceptance']) ?></span>
+              &mdash; <span class="text-muted"><?= escape($task['acceptance']) ?></span>
             </li>
             <?php endforeach; ?>
           </ul>
@@ -1121,16 +1150,7 @@ namespace Pathway;
 
 <?php elseif ($screen === 'dashboard'): ?>
   <!-- Student Dashboard -->
-  <div class="student-nav no-print" style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;overflow-x:auto;">
-    <a class="nav-role-tab active" href="/dashboard">Evidence Dashboard</a>
-    <a class="nav-role-tab" href="/jobs">Browse Jobs</a>
-    <a class="nav-role-tab" href="/applications">My Applications</a>
-    <a class="nav-role-tab" href="/profile">My Profile</a>
-    <a class="nav-role-tab" href="/resume">Resume Builder</a>
-    <a class="nav-role-tab" href="/achievements">Achievements</a>
-    <a class="nav-role-tab" href="/affiliation/request">College Affiliation</a>
-    <a class="nav-role-tab" href="/privacy/settings">Privacy &amp; Consent</a>
-  </div>
+  <?php student_nav($screen); ?>
 
   <section class="hero">
     <p class="eyebrow">Student Portal · Evidence Engine</p>
@@ -1154,9 +1174,9 @@ namespace Pathway;
       <h2 id="account-title">Demonstration Account</h2>
       <p><?= escape($user['email']) ?></p>
     </div>
-    <div style="display:flex;align-items:center;gap:12px;">
+    <div class="badge-group">
       <span class="badge">Student</span>
-      <span class="badge muted">SQLite Store v7</span>
+      <span class="badge muted">SQLite Store v<?= SCHEMA_VERSION ?></span>
     </div>
   </div>
 
@@ -1179,41 +1199,41 @@ namespace Pathway;
   ?>
 
   <!-- Student Career Analytics Cards -->
-  <section class="dashboard-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:28px;">
+  <section class="metric-grid">
     <div class="card stat-card">
       <div class="stat-value"><?= $totalApps ?></div>
       <div class="stat-label">Applications Submitted</div>
-      <div style="margin-top:6px;font-size:0.75rem;color:var(--text-muted);">
+      <div class="stat-sub">
         <?= $underReviewApps ?> under review &middot; <?= $shortlistedApps ?> shortlisted
       </div>
     </div>
     <div class="card stat-card">
-      <div class="stat-value" style="color:var(--emerald-400);"><?= $shortlistedApps ?></div>
+      <div class="stat-value text-emerald"><?= $shortlistedApps ?></div>
       <div class="stat-label">Shortlisted Opportunities</div>
-      <div style="margin-top:6px;font-size:0.75rem;color:var(--emerald-400);">Verified Employer Outreach</div>
+      <div class="stat-sub text-emerald">Verified Employer Outreach</div>
     </div>
     <div class="card stat-card">
-      <div class="stat-value" style="color:var(--sky-400);"><?= $completedAssessmentsCount ?></div>
+      <div class="stat-value text-sky"><?= $completedAssessmentsCount ?></div>
       <div class="stat-label">Verified Portfolio Audits</div>
-      <div style="margin-top:6px;font-size:0.75rem;color:var(--text-muted);">Commit-pinned evidence</div>
+      <div class="stat-sub">Commit-pinned evidence</div>
     </div>
     <div class="card stat-card">
-      <div class="stat-value" style="color:var(--violet-400);"><?= $achievementsCount ?></div>
+      <div class="stat-value text-violet"><?= $achievementsCount ?></div>
       <div class="stat-label">Credentials &amp; Badges</div>
-      <div style="margin-top:6px;font-size:0.75rem;color:var(--text-muted);">Structured credentials</div>
+      <div class="stat-sub">Structured credentials</div>
     </div>
   </section>
 
   <!-- Career Readiness & Profile Completeness Progress -->
-  <section class="card" style="margin-bottom:28px;background:var(--bg-secondary);border:1px solid var(--border-subtle);">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-      <h3 style="font-size:0.95rem;margin:0;font-weight:600;">Candidate Career Readiness</h3>
-      <span style="font-weight:700;color:var(--emerald-400);"><?= $completenessPoints ?>% Complete</span>
+  <section class="card progress-section">
+    <div class="section-header">
+      <h3 class="section-header-title">Candidate Career Readiness</h3>
+      <span class="progress-pct"><?= $completenessPoints ?>% Complete</span>
     </div>
-    <div style="width:100%;height:8px;background:var(--bg-primary);border-radius:var(--radius-pill);overflow:hidden;margin-bottom:10px;">
-      <div style="width:<?= $completenessPoints ?>%;height:100%;background:var(--emerald-500);border-radius:var(--radius-pill);transition:width 0.3s ease;"></div>
+    <div class="progress-track">
+      <div class="progress-fill" style="width:<?= $completenessPoints ?>%;"></div>
     </div>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:0.8rem;color:var(--text-muted);">
+    <div class="progress-legend">
       <span><?= !empty($profile['skills']) ? '&#10003; Skills added' : '&#x25C7; Add skills' ?></span>
       <span><?= $resumesCount > 0 ? '&#10003; ATS resume created' : '&#x25C7; Build ATS resume' ?></span>
       <span><?= $completedAssessmentsCount > 0 ? '&#10003; GitHub evidence linked' : '&#x25C7; Run repository assessment' ?></span>
@@ -1222,7 +1242,7 @@ namespace Pathway;
   </section>
 
   <!-- Assessment Submission Panel -->
-  <section class="auth-panel" aria-labelledby="assess-title" style="margin-bottom:36px;">
+  <section class="auth-panel section-panel" aria-labelledby="assess-title">
     <p class="eyebrow">Automated Portfolio Assessment</p>
     <h2 id="assess-title">Inspect a public GitHub repository</h2>
     <p class="lead">Submit an accessible repository. The agent safely pins the commit SHA and executes bounded static lexical inspections.</p>
@@ -1245,7 +1265,7 @@ namespace Pathway;
         </select>
       </div>
 
-      <button class="button" type="submit" style="align-self:flex-start;">
+      <button class="button" type="submit">
         Execute Bounded Assessment
       </button>
     </form>
@@ -1253,11 +1273,12 @@ namespace Pathway;
 
   <!-- Assessment History Table -->
   <?php if (!empty($assessments)): ?>
-  <section aria-labelledby="history-title" style="margin:36px 0;">
+  <section aria-labelledby="history-title" class="section-panel">
     <p class="eyebrow">Historical Inspections</p>
     <h2 id="history-title">Assessment History</h2>
     <div class="table-container">
       <table>
+        <caption class="sr-only">GitHub evidence assessment history</caption>
         <thead>
           <tr>
             <th>ID</th>
@@ -1282,7 +1303,7 @@ namespace Pathway;
             <td><?= escape(date('Y-m-d H:i', (int) $a['created_at'])) ?></td>
             <td>
               <?php if ($a['state'] === 'completed'): ?>
-              <a href="/assess?id=<?= (int) $a['id'] ?>" style="font-weight:700;">View Findings &rarr;</a>
+              <a href="/assess?id=<?= (int) $a['id'] ?>" class="text-link-bold">View Findings &rarr;</a>
               <?php elseif ($a['state'] === 'failed'): ?>
               <a href="/assess?id=<?= (int) $a['id'] ?>">View Error &rarr;</a>
               <?php endif; ?>
@@ -1311,19 +1332,19 @@ namespace Pathway;
       <span class="step">01</span>
       <h2>Build your profile</h2>
       <p>Example task: describe one project, your contribution and the problem it solves.</p>
-      <a class="button secondary" href="/profile" style="margin-top:10px;padding:6px 12px;font-size:0.8rem;">Edit Profile &rarr;</a>
+      <a class="button secondary sm" href="/profile">Edit Profile &rarr;</a>
     </article>
     <article>
       <span class="step">02</span>
       <h2>Explore opportunities</h2>
       <p>Example role: frontend internship. No live job listings are connected in this slice.</p>
-      <a class="button secondary" href="/jobs" style="margin-top:10px;padding:6px 12px;font-size:0.8rem;">Browse Jobs &rarr;</a>
+      <a class="button secondary sm" href="/jobs">Browse Jobs &rarr;</a>
     </article>
     <article>
       <span class="step">03</span>
       <h2>Track your progress</h2>
       <p>Future application tracking will show recorded statuses. No application metrics are available yet.</p>
-      <a class="button secondary" href="/applications" style="margin-top:10px;padding:6px 12px;font-size:0.8rem;">View Applications &rarr;</a>
+      <a class="button secondary sm" href="/applications">View Applications &rarr;</a>
     </article>
   </section>
 
@@ -1339,7 +1360,7 @@ namespace Pathway;
         <p>Positions, applications, candidate evaluation notes, and recruitment decisions are strictly isolated to your verified company organization.</p>
       </div>
 
-      <div style="margin-top:24px;display:flex;gap:18px;flex-wrap:wrap;">
+      <div class="badge-group">
         <span class="badge">&#x2713; Verified Organization</span>
         <span class="badge">&#x2713; Tenant Isolated</span>
         <span class="badge">&#x2713; Direct Applicant Review</span>
@@ -1374,7 +1395,7 @@ namespace Pathway;
           <input id="company-password" name="password" type="password" autocomplete="current-password" maxlength="72" required>
         </div>
 
-        <button class="button" type="submit" style="margin-top:8px;">Sign In to Company Portal</button>
+        <button class="button" type="submit">Sign In to Company Portal</button>
       </form>
 
       <p class="switch">
@@ -1385,21 +1406,17 @@ namespace Pathway;
   </div>
 
 <?php elseif ($screen === 'company_dashboard'): ?>
-  <div class="student-nav no-print" style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;overflow-x:auto;">
-    <a class="nav-role-tab active" href="/company/dashboard">Company Overview</a>
-    <a class="nav-role-tab" href="/company/jobs/new">+ Post New Position</a>
-    <a class="nav-role-tab" href="/company/applicants">Candidate Review</a>
-  </div>
+  <?php company_nav($screen); ?>
 
   <section class="hero">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;">
+    <div class="section-header">
       <div>
         <p class="eyebrow">Company Recruitment Hub &middot; <?= escape($org['org_name'] ?? 'Company') ?></p>
         <h1><?= escape($org['org_name'] ?? 'Company Portal') ?></h1>
-        <p style="margin-top:4px;">
+        <p class="badge-group mt-xs">
           <span class="badge badge-observed">Verified Organization</span>
-          <span class="badge" style="margin-left:8px;">Role: <?= escape($org['member_role'] ?? 'STAFF') ?></span>
-          <span class="badge muted" style="margin-left:8px;">Slug: <?= escape($org['org_slug'] ?? '') ?></span>
+          <span class="badge">Role: <?= escape($org['member_role'] ?? 'STAFF') ?></span>
+          <span class="badge muted">Slug: <?= escape($org['org_slug'] ?? '') ?></span>
         </p>
       </div>
       <div>
@@ -1420,7 +1437,7 @@ namespace Pathway;
   <?php endif; ?>
 
   <!-- Metrics Cards -->
-  <div class="dashboard-stats" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:16px;margin-bottom:28px;">
+  <div class="metric-grid">
     <?php
       $jobsList = $jobs ?? [];
       $allApplicantsList = $allApplicants ?? [];
@@ -1431,36 +1448,37 @@ namespace Pathway;
       $underReviewApplicants = count(array_filter($allApplicantsList, fn($a) => ($a['status'] ?? '') === 'under_review'));
       $conversionRate = $totalApplicants > 0 ? (int) round(($shortlistedApplicants / $totalApplicants) * 100) : 0;
     ?>
-    <div class="card" style="padding:18px;">
-      <span style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);font-weight:600;">Total Positions</span>
-      <p style="font-size:2rem;font-weight:700;margin:8px 0 0;"><?= $totalJobs ?></p>
+    <div class="card stat-card">
+      <span class="stat-label">Total Positions</span>
+      <p class="stat-value"><?= $totalJobs ?></p>
     </div>
-    <div class="card" style="padding:18px;">
-      <span style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);font-weight:600;">Active Listings</span>
-      <p style="font-size:2rem;font-weight:700;margin:8px 0 0;color:var(--emerald-400);"><?= $activeJobs ?></p>
+    <div class="card stat-card">
+      <span class="stat-label">Active Listings</span>
+      <p class="stat-value text-emerald"><?= $activeJobs ?></p>
     </div>
-    <div class="card" style="padding:18px;">
-      <span style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);font-weight:600;">Total Applicants</span>
-      <p style="font-size:2rem;font-weight:700;margin:8px 0 0;"><?= $totalApplicants ?></p>
-      <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;"><?= $underReviewApplicants ?> under review</div>
+    <div class="card stat-card">
+      <span class="stat-label">Total Applicants</span>
+      <p class="stat-value"><?= $totalApplicants ?></p>
+      <div class="stat-sub"><?= $underReviewApplicants ?> under review</div>
     </div>
-    <div class="card" style="padding:18px;">
-      <span style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);font-weight:600;">Shortlisted</span>
-      <p style="font-size:2rem;font-weight:700;margin:8px 0 0;color:var(--emerald-400);"><?= $shortlistedApplicants ?></p>
-      <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;"><?= $conversionRate ?>% conversion rate</div>
+    <div class="card stat-card">
+      <span class="stat-label">Shortlisted</span>
+      <p class="stat-value text-emerald"><?= $shortlistedApplicants ?></p>
+      <div class="stat-sub"><?= $conversionRate ?>% conversion rate</div>
     </div>
   </div>
 
   <!-- Job Listings Table -->
-  <section class="card" style="margin-bottom:32px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-      <h2 style="font-size:1.3rem;margin:0;">Posted Job Openings</h2>
-      <a class="button secondary" style="padding:6px 12px;font-size:0.8rem;" href="/company/applicants">View All Applicants &rarr;</a>
+  <section class="card section-panel">
+    <div class="section-header">
+      <h2 class="section-title">Posted Job Openings</h2>
+      <a class="button secondary sm" href="/company/applicants">View All Applicants &rarr;</a>
     </div>
 
     <?php if (!empty($jobsList)): ?>
     <div class="table-container">
       <table>
+        <caption class="sr-only">Company posted positions</caption>
         <thead>
           <tr>
             <th>Position Title</th>
@@ -1485,14 +1503,14 @@ namespace Pathway;
               </span>
             </td>
             <td>
-              <a href="/company/applicants?job_id=<?= (int) $job['id'] ?>" style="font-weight:700;">
+              <a href="/company/applicants?job_id=<?= (int) $job['id'] ?>" class="text-link-bold">
                 <?= (int) ($job['applicant_count'] ?? 0) ?> candidates &rarr;
               </a>
             </td>
             <td>
-              <div style="display:flex;gap:8px;">
-                <a class="button secondary" style="padding:4px 10px;font-size:0.8rem;" href="/company/jobs/edit?id=<?= (int) $job['id'] ?>">Edit</a>
-                <a class="button secondary" style="padding:4px 10px;font-size:0.8rem;" href="/company/applicants?job_id=<?= (int) $job['id'] ?>">Review</a>
+              <div class="actions">
+                <a class="button secondary sm" href="/company/jobs/edit?id=<?= (int) $job['id'] ?>">Edit</a>
+                <a class="button secondary sm" href="/company/applicants?job_id=<?= (int) $job['id'] ?>">Review</a>
               </div>
             </td>
           </tr>
@@ -1501,19 +1519,15 @@ namespace Pathway;
       </table>
     </div>
     <?php else: ?>
-    <div class="notice" style="margin:16px 0;">
+    <div class="notice">
       <p>No job positions posted yet. Publish your first opportunity to receive verified student applications.</p>
-      <p style="margin-top:12px;"><a class="button" href="/company/jobs/new">+ Create First Position</a></p>
+      <p class="mt-sm"><a class="button" href="/company/jobs/new">+ Create First Position</a></p>
     </div>
     <?php endif; ?>
   </section>
 
 <?php elseif ($screen === 'company_job_form'): ?>
-  <div class="student-nav no-print" style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;overflow-x:auto;">
-    <a class="nav-role-tab" href="/company/dashboard">Company Overview</a>
-    <a class="nav-role-tab <?= $job === null ? 'active' : '' ?>" href="/company/jobs/new">+ Post New Position</a>
-    <a class="nav-role-tab" href="/company/applicants">Candidate Review</a>
-  </div>
+  <?php company_nav($screen); ?>
 
   <section class="hero">
     <p class="eyebrow">Company Recruitment Hub &middot; <?= escape($org['org_name'] ?? 'Company') ?></p>
@@ -1532,7 +1546,7 @@ namespace Pathway;
   <div class="notice success" role="status"><p><?= escape($flashSuccess) ?></p></div>
   <?php endif; ?>
 
-  <section class="auth-panel" style="max-width:800px;margin:0 auto 40px;">
+  <section class="auth-panel panel-wide">
     <form action="<?= $job !== null ? '/company/jobs/edit' : '/company/jobs/new' ?>" method="post">
       <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
       <?php if ($job !== null): ?>
@@ -1545,7 +1559,7 @@ namespace Pathway;
         <p class="hint">3 to 140 characters.</p>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div class="form-grid">
         <div class="form-group">
           <label for="role-category">Role Category</label>
           <select id="role-category" name="role_category">
@@ -1588,7 +1602,7 @@ namespace Pathway;
         <p class="hint">10 to 5000 characters.</p>
       </div>
 
-      <div style="display:flex;gap:14px;margin-top:24px;">
+      <div class="actions mt-md">
         <button class="button" type="submit"><?= $job !== null ? 'Save Changes' : 'Publish Position' ?></button>
         <a class="button secondary" href="/company/dashboard">Cancel</a>
       </div>
@@ -1596,12 +1610,7 @@ namespace Pathway;
   </section>
 
 <?php elseif ($screen === 'company_applicants'): ?>
-  <div class="student-nav no-print" style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;overflow-x:auto;">
-    <a class="nav-role-tab" href="/company/dashboard">Company Overview</a>
-    <a class="nav-role-tab" href="/company/jobs/new">+ Post New Position</a>
-    <a class="nav-role-tab active" href="/company/applicants">Candidate Review</a>
-    <a class="nav-role-tab" href="/company/talent">Talent Discovery</a>
-  </div>
+  <?php company_nav($screen); ?>
 
   <section class="hero">
     <p class="eyebrow">Company Recruitment Hub &middot; <?= escape($org['org_name'] ?? 'Company') ?></p>
@@ -1621,13 +1630,13 @@ namespace Pathway;
   <?php endif; ?>
 
   <!-- Filter Bar -->
-  <div style="display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap;align-items:center;">
-    <span style="font-size:0.85rem;color:var(--text-muted);font-weight:600;">Filter by Position:</span>
-    <a class="button <?= ($selectedJobId ?? null) === null ? '' : 'secondary' ?>" style="padding:6px 14px;font-size:0.85rem;" href="/company/applicants">
+  <div class="filter-bar">
+    <span class="filter-label">Filter by Position:</span>
+    <a class="button <?= ($selectedJobId ?? null) === null ? '' : 'secondary' ?> sm" href="/company/applicants">
       All Openings (<?= count($applicants ?? []) ?>)
     </a>
     <?php foreach (($jobs ?? []) as $j): ?>
-    <a class="button <?= ($selectedJobId ?? null) === (int)$j['id'] ? '' : 'secondary' ?>" style="padding:6px 14px;font-size:0.85rem;" href="/company/applicants?job_id=<?= (int) $j['id'] ?>">
+    <a class="button <?= ($selectedJobId ?? null) === (int)$j['id'] ? '' : 'secondary' ?> sm" href="/company/applicants?job_id=<?= (int) $j['id'] ?>">
       <?= escape($j['title']) ?> (<?= (int) ($j['applicant_count'] ?? 0) ?>)
     </a>
     <?php endforeach; ?>
@@ -1637,6 +1646,7 @@ namespace Pathway;
   <?php if (!empty($applicants)): ?>
   <div class="table-container">
     <table>
+      <caption class="sr-only">Candidate applications and shortlist</caption>
       <thead>
         <tr>
           <th>Candidate</th>
@@ -1666,22 +1676,22 @@ namespace Pathway;
         <tr>
           <td>
             <strong><?= escape($app['student_name']) ?></strong><br>
-            <span style="font-size:0.8rem;color:var(--text-muted);"><?= escape($app['student_email']) ?></span><br>
-            <a href="/company/candidate?id=<?= (int) $app['application_id'] ?>" style="font-size:0.8rem;color:var(--brand-accent);">View Candidate Dossier &rarr;</a>
+            <span class="text-muted text-xs"><?= escape($app['student_email']) ?></span><br>
+            <a href="/company/candidate?id=<?= (int) $app['application_id'] ?>" class="link-accent">View Candidate Dossier &rarr;</a>
           </td>
           <td><?= escape($app['college'] ?: 'Not specified') ?></td>
           <td>
             <a href="/jobs/view?id=<?= (int) $app['job_id'] ?>"><?= escape($app['job_title']) ?></a><br>
-            <span class="badge muted" style="font-size:0.75rem;"><?= escape(ucfirst($app['role_category'])) ?></span>
+            <span class="badge muted keyword-tag"><?= escape(ucfirst($app['role_category'])) ?></span>
           </td>
           <td>
             <?php if (!empty($app['github_username'])): ?>
             <code>github.com/<?= escape($app['github_username']) ?></code>
             <?php else: ?>
-            <span style="color:var(--text-muted);">&mdash;</span>
+            <span class="text-muted">&mdash;</span>
             <?php endif; ?>
           </td>
-          <td style="max-width:200px;font-size:0.85rem;color:var(--text-muted);">
+          <td class="table-notes">
             <?= escape($app['notes'] ?: 'No notes') ?>
           </td>
           <td><?= escape(date('Y-m-d H:i', (int) $app['created_at'])) ?></td>
@@ -1689,7 +1699,7 @@ namespace Pathway;
             <span class="badge <?= $badgeClass ?>"><?= escape($statusLabel) ?></span>
           </td>
           <td>
-            <form action="/company/applicants/status" method="post" style="display:flex;gap:6px;margin:0;">
+            <form action="/company/applicants/status" method="post" class="inline-form actions">
               <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
               <input type="hidden" name="application_id" value="<?= (int) $app['application_id'] ?>">
               <?php if (($selectedJobId ?? null) !== null): ?>
@@ -1697,11 +1707,11 @@ namespace Pathway;
               <?php endif; ?>
               
               <?php if ($status !== 'shortlisted'): ?>
-              <button class="button" type="submit" name="status" value="shortlisted" style="padding:4px 10px;font-size:0.75rem;background:var(--emerald-600);">Shortlist</button>
+              <button class="button" type="submit" name="status" value="shortlisted" class="sm">Shortlist</button>
               <?php endif; ?>
               
               <?php if ($status !== 'rejected'): ?>
-              <button class="button secondary" type="submit" name="status" value="rejected" style="padding:4px 10px;font-size:0.75rem;color:var(--rose-400);border-color:var(--rose-500);">Decline</button>
+              <button class="button secondary danger sm" type="submit" name="status" value="rejected">Decline</button>
               <?php endif; ?>
             </form>
           </td>
@@ -1711,7 +1721,7 @@ namespace Pathway;
     </table>
   </div>
   <?php else: ?>
-  <div class="notice" style="margin:24px 0;">
+  <div class="notice">
     <h2>No applications found</h2>
     <p>There are no candidate applications for the selected criteria yet.</p>
   </div>
@@ -1729,7 +1739,7 @@ namespace Pathway;
         <p>In adherence to strict privacy controls, candidate resumes and application histories are exposed only for students who have explicitly granted placement cell authorization.</p>
       </div>
 
-      <div style="margin-top:24px;display:flex;gap:18px;flex-wrap:wrap;">
+      <div class="badge-group">
         <span class="badge">&#x2713; Verified College</span>
         <span class="badge">&#x2713; Student Consent Enforced</span>
         <span class="badge">&#x2713; Placement Analytics</span>
@@ -1764,7 +1774,7 @@ namespace Pathway;
           <input id="college-password" name="password" type="password" autocomplete="current-password" maxlength="72" required>
         </div>
 
-        <button class="button" type="submit" style="margin-top:8px;">Sign In to College Portal</button>
+        <button class="button" type="submit">Sign In to College Portal</button>
       </form>
 
       <p class="switch">
@@ -1775,18 +1785,15 @@ namespace Pathway;
   </div>
 
 <?php elseif ($screen === 'college_dashboard'): ?>
-  <div class="student-nav no-print" style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;overflow-x:auto;">
-    <a class="nav-role-tab active" href="/college/dashboard">Campus Placement Intelligence</a>
-    <a class="nav-role-tab" href="/college/affiliations">Affiliation Review Queue</a>
-  </div>
+  <?php college_nav($screen); ?>
 
   <section class="hero">
     <p class="eyebrow">Academic Placement Network &middot; <?= escape($org['org_name'] ?? 'College') ?></p>
     <h1><?= escape($org['org_name'] ?? 'College Portal') ?></h1>
-    <p style="margin-top:4px;">
+    <p class="badge-group mt-xs">
       <span class="badge badge-observed">Verified Academic Organization</span>
-      <span class="badge" style="margin-left:8px;">Role: <?= escape($org['member_role'] ?? 'STAFF') ?></span>
-      <span class="badge muted" style="margin-left:8px;">Slug: <?= escape($org['org_slug'] ?? '') ?></span>
+      <span class="badge">Role: <?= escape($org['member_role'] ?? 'STAFF') ?></span>
+      <span class="badge muted">Slug: <?= escape($org['org_slug'] ?? '') ?></span>
     </p>
   </section>
 
@@ -1802,7 +1809,7 @@ namespace Pathway;
   <?php endif; ?>
 
   <!-- KPI Metrics Cards -->
-  <div class="dashboard-stats" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:16px;margin-bottom:28px;">
+  <div class="metric-grid">
     <?php
       $studList = $students ?? [];
       $totalAssociated = count($studList);
@@ -1810,36 +1817,37 @@ namespace Pathway;
       $shortlistedCount = count(array_filter($studList, fn($s) => (int)($s['shortlisted_count'] ?? 0) > 0));
       $consentRate = $totalAssociated > 0 ? (int) round(($consentedCount / $totalAssociated) * 100) : 0;
     ?>
-    <div class="card" style="padding:18px;">
-      <span style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);font-weight:600;">Associated Students</span>
-      <p style="font-size:2rem;font-weight:700;margin:8px 0 0;"><?= $totalAssociated ?></p>
+    <div class="card stat-card">
+      <span class="stat-label">Associated Students</span>
+      <p class="stat-value"><?= $totalAssociated ?></p>
     </div>
-    <div class="card" style="padding:18px;">
-      <span style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);font-weight:600;">Consent Granted</span>
-      <p style="font-size:2rem;font-weight:700;margin:8px 0 0;color:var(--emerald-400);"><?= $consentedCount ?></p>
+    <div class="card stat-card">
+      <span class="stat-label">Consent Granted</span>
+      <p class="stat-value text-emerald"><?= $consentedCount ?></p>
     </div>
-    <div class="card" style="padding:18px;">
-      <span style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);font-weight:600;">Placed / Shortlisted</span>
-      <p style="font-size:2rem;font-weight:700;margin:8px 0 0;color:var(--emerald-400);"><?= $shortlistedCount ?></p>
+    <div class="card stat-card">
+      <span class="stat-label">Placed / Shortlisted</span>
+      <p class="stat-value text-emerald"><?= $shortlistedCount ?></p>
     </div>
-    <div class="card" style="padding:18px;">
-      <span style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);font-weight:600;">Consent Rate</span>
-      <p style="font-size:2rem;font-weight:700;margin:8px 0 0;"><?= $consentRate ?>%</p>
+    <div class="card stat-card">
+      <span class="stat-label">Consent Rate</span>
+      <p class="stat-value"><?= $consentRate ?>%</p>
     </div>
   </div>
 
-  <div class="notice" style="margin-bottom:24px;">
+  <div class="notice">
     <h2>Consent-based privacy safeguards active</h2>
     <p>Detailed placement records and application histories are visible only for students who have explicitly opted in via their student profile. Non-consenting student profiles display anonymized identities with confidential application metrics.</p>
   </div>
 
   <!-- Student Roster Table -->
-  <section class="card" style="margin-bottom:32px;">
-    <h2 style="font-size:1.3rem;margin-bottom:16px;">Campus Student Roster (<?= count($studList) ?>)</h2>
+  <section class="card section-panel">
+    <h2 class="section-title">Campus Student Roster (<?= count($studList) ?>)</h2>
 
     <?php if (!empty($studList)): ?>
     <div class="table-container">
       <table>
+        <caption class="sr-only">Affiliated student roster and consent status</caption>
         <thead>
           <tr>
             <th>Candidate Name</th>
@@ -1862,7 +1870,7 @@ namespace Pathway;
               <?php if ($hasConsent): ?>
               <?= escape($s['student_email']) ?>
               <?php else: ?>
-              <span class="badge muted" style="font-size:0.75rem;">Consent Withheld</span>
+              <span class="badge muted keyword-tag">Consent Withheld</span>
               <?php endif; ?>
             </td>
             <td><?= escape($s['skills'] ?: 'Not specified') ?></td>
@@ -1870,7 +1878,7 @@ namespace Pathway;
               <?php if (!empty($s['github_username'])): ?>
               <code><?= escape($s['github_username']) ?></code>
               <?php else: ?>
-              <span style="color:var(--text-muted);">&mdash;</span>
+              <span class="text-muted">&mdash;</span>
               <?php endif; ?>
             </td>
             <td>
@@ -1881,7 +1889,7 @@ namespace Pathway;
             <td><?= $hasConsent ? (int) ($s['applications_count'] ?? 0) : '&mdash;' ?></td>
             <td>
               <?php if ($hasConsent && (int) ($s['shortlisted_count'] ?? 0) > 0): ?>
-              <strong style="color:var(--emerald-400);"><?= (int) $s['shortlisted_count'] ?> shortlisted</strong>
+              <strong class="text-emerald"><?= (int) $s['shortlisted_count'] ?> shortlisted</strong>
               <?php elseif ($hasConsent): ?>
               0
               <?php else: ?>
@@ -1889,19 +1897,19 @@ namespace Pathway;
               <?php endif; ?>
             </td>
             <td>
-              <div style="display:flex;gap:6px;align-items:center;">
+              <div class="actions">
                 <?php if ($hasConsent): ?>
-                <a class="button secondary" style="padding:4px 10px;font-size:0.8rem;" href="/college/students/view?id=<?= (int) $s['student_id'] ?>">
+                <a class="button secondary sm" href="/college/students/view?id=<?= (int) $s['student_id'] ?>">
                   View Records &rarr;
                 </a>
                 <?php else: ?>
-                <span style="font-size:0.8rem;color:var(--text-muted);">Private</span>
+                <span class="text-muted text-xs">Private</span>
                 <?php endif; ?>
-                <form action="/college/affiliations/revoke" method="post" style="margin:0;">
+                <form action="/college/affiliations/revoke" method="post" class="inline-form">
                   <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
                   <input type="hidden" name="student_id" value="<?= (int) $s['student_id'] ?>">
                   <input type="hidden" name="reason" value="Administrative revocation by placement coordinator">
-                  <button class="button secondary" type="submit" style="padding:4px 8px;font-size:0.75rem;color:var(--rose-400);border-color:var(--rose-500);">Revoke</button>
+                  <button class="button secondary danger sm" type="submit">Revoke</button>
                 </form>
               </div>
             </td>
@@ -1911,16 +1919,14 @@ namespace Pathway;
       </table>
     </div>
     <?php else: ?>
-    <div class="notice" style="margin:16px 0;">
+    <div class="notice">
       <p>No students have linked their profiles to this college yet. Students can associate with your verified institution in their profile settings.</p>
     </div>
     <?php endif; ?>
   </section>
 
 <?php elseif ($screen === 'college_student_detail'): ?>
-  <div class="student-nav no-print" style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;overflow-x:auto;">
-    <a class="nav-role-tab" href="/college/dashboard">&larr; Return to College Roster</a>
-  </div>
+  <?php college_nav($screen); ?>
 
   <?php
     $student = $placement['student'] ?? [];
@@ -1931,25 +1937,26 @@ namespace Pathway;
   <section class="hero">
     <p class="eyebrow">Consented Candidate Record &middot; <?= escape($org['org_name'] ?? 'College') ?></p>
     <h1><?= escape($student['student_name'] ?? $student['name'] ?? 'Student') ?></h1>
-    <p style="margin-top:4px;">
+    <p class="badge-group mt-xs">
       <span class="badge badge-observed">Student Consent Verified</span>
-      <span class="badge muted" style="margin-left:8px;"><?= escape($student['student_email'] ?? $student['email'] ?? '') ?></span>
+      <span class="badge muted"><?= escape($student['student_email'] ?? $student['email'] ?? '') ?></span>
       <?php if (!empty($student['enrollment_number'])): ?>
-      <span class="badge" style="margin-left:8px;">USN: <code><?= escape($student['enrollment_number']) ?></code></span>
+      <span class="badge">USN: <code><?= escape($student['enrollment_number']) ?></code></span>
       <?php endif; ?>
       <?php if (!empty($student['github_username'])): ?>
-      <span class="badge" style="margin-left:8px;"><code>github.com/<?= escape($student['github_username']) ?></code></span>
+      <span class="badge"><code>github.com/<?= escape($student['github_username']) ?></code></span>
       <?php endif; ?>
     </p>
   </section>
 
   <!-- Applications History -->
-  <section class="card" style="margin-bottom:32px;">
-    <h2 style="font-size:1.3rem;margin-bottom:14px;">Internship &amp; Placement Applications (<?= count($apps) ?>)</h2>
+  <section class="card section-panel">
+    <h2 class="section-title">Internship &amp; Placement Applications (<?= count($apps) ?>)</h2>
 
     <?php if (!empty($apps)): ?>
     <div class="table-container">
       <table>
+        <caption class="sr-only">Student application history</caption>
         <thead>
           <tr>
             <th>Application</th>
@@ -1989,7 +1996,7 @@ namespace Pathway;
       </table>
     </div>
     <?php else: ?>
-    <div class="notice" style="margin:12px 0;">
+    <div class="notice">
       <p>No job applications submitted yet by this student.</p>
     </div>
     <?php endif; ?>
@@ -1997,15 +2004,15 @@ namespace Pathway;
 
   <!-- Latest Resume Overview -->
   <?php if ($resume !== null): ?>
-  <section class="card" style="margin-bottom:32px;">
-    <h2 style="font-size:1.3rem;margin-bottom:14px;">Verified Candidate Resume Summary</h2>
-    <div style="background:var(--bg-surface);padding:16px;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);">
-      <h3 style="margin:0 0 8px;font-size:1.1rem;"><?= escape($resume['title']) ?></h3>
-      <p style="color:var(--text-secondary);margin-bottom:12px;font-size:0.95rem;line-height:1.5;">
+  <section class="card section-panel">
+    <h2 class="section-title">Verified Candidate Resume Summary</h2>
+    <div class="entry-block">
+      <h3 class="entry-block-title"><?= escape($resume['title']) ?></h3>
+      <p class="text-secondary">
         <?= escape($resume['summary']) ?>
       </p>
       <?php if (!empty($resume['assessment_id'])): ?>
-      <p style="margin:0;font-size:0.85rem;">
+      <p class="text-sm">
         <span class="badge badge-observed">&#x2713; Cryptographic GitHub Evidence Citation Attached (Assessment #<?= (int) $resume['assessment_id'] ?>)</span>
       </p>
       <?php endif; ?>
@@ -2015,23 +2022,23 @@ namespace Pathway;
 
   <?php $achievements = $placement['achievements'] ?? []; ?>
   <?php if (!empty($achievements)): ?>
-  <section class="card" style="margin-bottom:32px;">
-    <h2 style="font-size:1.3rem;margin-bottom:14px;">Verified Credentials &amp; Achievements (<?= count($achievements) ?>)</h2>
-    <div style="display:flex;flex-direction:column;gap:12px;">
+  <section class="card section-panel">
+    <h2 class="section-title">Verified Credentials &amp; Achievements (<?= count($achievements) ?>)</h2>
+    <div class="achievement-list">
       <?php foreach ($achievements as $ach): ?>
-      <div style="padding:12px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border-subtle);">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <span class="badge" style="font-size:0.75rem;"><?= escape($ach['category']) ?></span>
+      <div class="achievement-item">
+        <div class="achievement-header">
+          <span class="badge sm"><?= escape($ach['category']) ?></span>
           <strong><?= escape($ach['title']) ?></strong>
           <?php if (!empty($ach['issuer'])): ?>
-          <span style="font-size:0.85rem;color:var(--text-muted);">&middot; <?= escape($ach['issuer']) ?></span>
+          <span class="achievement-meta">&middot; <?= escape($ach['issuer']) ?></span>
           <?php endif; ?>
           <?php if (!empty($ach['issue_date'])): ?>
-          <span style="font-size:0.85rem;color:var(--text-muted);">(<?= escape($ach['issue_date']) ?>)</span>
+          <span class="achievement-meta">(<?= escape($ach['issue_date']) ?>)</span>
           <?php endif; ?>
         </div>
         <?php if (!empty($ach['description'])): ?>
-        <p style="font-size:0.85rem;color:var(--text-secondary);margin:6px 0 0;"><?= escape($ach['description']) ?></p>
+        <p class="achievement-desc"><?= escape($ach['description']) ?></p>
         <?php endif; ?>
       </div>
       <?php endforeach; ?>
@@ -2081,7 +2088,7 @@ namespace Pathway;
           <input id="admin-password" name="password" type="password" autocomplete="current-password" maxlength="72" required>
         </div>
 
-        <button class="button" type="submit" style="margin-top:8px;">Sign In to Administration</button>
+        <button class="button" type="submit">Sign In to Administration</button>
       </form>
 
       <p class="switch">
@@ -2092,8 +2099,8 @@ namespace Pathway;
   </div>
 
 <?php elseif ($screen === 'request_access'): ?>
-  <div class="auth-layout" style="max-width:760px;margin:24px auto;">
-    <section class="hero" style="text-align:center;margin-bottom:28px;">
+  <div class="auth-layout panel-medium">
+    <section class="hero text-center">
       <p class="eyebrow">Institutional Onboarding &middot; High Assurance Trust</p>
       <h1>Request Organization Access</h1>
       <p>Partner companies and accredited universities: submit your credentials to join EIDOLON PATHWAY.</p>
@@ -2105,71 +2112,71 @@ namespace Pathway;
       unset($_SESSION['flash_error'], $_SESSION['flash']);
     ?>
     <?php if (is_string($flashError)): ?>
-    <div class="notice error" role="alert" style="margin-bottom:20px;"><p><?= escape($flashError) ?></p></div>
+    <div class="notice error" role="alert"><p><?= escape($flashError) ?></p></div>
     <?php elseif (is_string($flashSuccess)): ?>
-    <div class="notice success" role="status" style="margin-bottom:20px;"><p><?= escape($flashSuccess) ?></p></div>
+    <div class="notice success" role="status"><p><?= escape($flashSuccess) ?></p></div>
     <?php endif; ?>
 
     <?php if (isset($_GET['submitted'])): ?>
-    <section class="card" style="text-align:center;padding:36px 24px;">
-      <div style="font-size:3rem;color:var(--emerald-400);margin-bottom:12px;">&#10003;</div>
-      <h2 style="font-size:1.4rem;margin-bottom:12px;">Application Received</h2>
-      <p style="color:var(--text-secondary);max-width:540px;margin:0 auto 24px;line-height:1.6;">
+    <section class="card success-state">
+      <div class="success-icon">&#10003;</div>
+      <h2 class="success-title">Application Received</h2>
+      <p class="success-message">
         Your institutional access request has been securely recorded. Our compliance officers verify official domain records, educational accreditation, and authority to represent before issuing cryptographic invitation links.
       </p>
-      <div style="display:flex;gap:12px;justify-content:center;">
+      <div class="actions actions-center">
         <a class="button" href="/login">Return to Platform</a>
         <a class="button secondary" href="/request-access">Submit Another Request</a>
       </div>
     </section>
     <?php else: ?>
     <section class="card">
-      <form action="/request-access" method="post" style="display:flex;flex-direction:column;gap:18px;">
+      <form action="/request-access" method="post" class="form-vertical">
         <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
 
         <div>
-          <label for="req-name" style="font-weight:600;display:block;margin-bottom:6px;">Organization Legal Name</label>
-          <input id="req-name" name="name" type="text" placeholder="e.g. Acme Technologies Inc. or Dayananda Sagar Academy of Technology & Management" maxlength="120" required style="width:100%;box-sizing:border-box;">
+          <label for="req-name" class="form-label">Organization Legal Name</label>
+          <input id="req-name" name="name" type="text" placeholder="e.g. Acme Technologies Inc. or Dayananda Sagar Academy of Technology & Management" maxlength="120" required >
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="form-grid">
           <div>
-            <label for="req-type" style="font-weight:600;display:block;margin-bottom:6px;">Organization Type</label>
-            <select id="req-type" name="type" required style="width:100%;box-sizing:border-box;padding:8px 12px;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-subtle);border-radius:6px;">
+            <label for="req-type" class="form-label">Organization Type</label>
+            <select id="req-type" name="type" required >
               <option value="COMPANY">Company / Employer</option>
               <option value="COLLEGE">College / University</option>
             </select>
           </div>
           <div>
-            <label for="req-website" style="font-weight:600;display:block;margin-bottom:6px;">Official Website / Domain</label>
-            <input id="req-website" name="website" type="text" placeholder="https://example.com" maxlength="200" required style="width:100%;box-sizing:border-box;">
+            <label for="req-website" class="form-label">Official Website / Domain</label>
+            <input id="req-website" name="website" type="text" placeholder="https://example.com" maxlength="200" required >
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="form-grid">
           <div>
-            <label for="req-contact-name" style="font-weight:600;display:block;margin-bottom:6px;">Authorized Contact Full Name</label>
-            <input id="req-contact-name" name="contact_name" type="text" placeholder="e.g. Dr. Ramesh Rao or Jane Doe" maxlength="100" required style="width:100%;box-sizing:border-box;">
+            <label for="req-contact-name" class="form-label">Authorized Contact Full Name</label>
+            <input id="req-contact-name" name="contact_name" type="text" placeholder="e.g. Dr. Ramesh Rao or Jane Doe" maxlength="100" required >
           </div>
           <div>
-            <label for="req-designation" style="font-weight:600;display:block;margin-bottom:6px;">Designation / Official Title</label>
-            <input id="req-designation" name="designation" type="text" placeholder="e.g. Dean of Placements or Head of Talent" maxlength="100" required style="width:100%;box-sizing:border-box;">
+            <label for="req-designation" class="form-label">Designation / Official Title</label>
+            <input id="req-designation" name="designation" type="text" placeholder="e.g. Dean of Placements or Head of Talent" maxlength="100" required >
           </div>
         </div>
 
         <div>
-          <label for="req-email" style="font-weight:600;display:block;margin-bottom:6px;">Official Institutional Work Email</label>
-          <input id="req-email" name="contact_email" type="email" placeholder="name@organization.edu or name@company.com" maxlength="254" required style="width:100%;box-sizing:border-box;">
-          <small class="hint" style="display:block;margin-top:4px;">Must use official institutional domain. Generic free email providers (Gmail, Yahoo) are subjected to strict scrutiny.</small>
+          <label for="req-email" class="form-label">Official Institutional Work Email</label>
+          <input id="req-email" name="contact_email" type="email" placeholder="name@organization.edu or name@company.com" maxlength="254" required >
+          <small class="hint">Must use official institutional domain. Generic free email providers (Gmail, Yahoo) are subjected to strict scrutiny.</small>
         </div>
 
         <div>
-          <label for="req-notes" style="font-weight:600;display:block;margin-bottom:6px;">Verification Evidence &amp; Authority Statement</label>
-          <textarea id="req-notes" name="verification_notes" rows="4" placeholder="Provide proof of authority: official university accreditation ID, department URL, leadership directory link, corporate registration number, or official contact reference." maxlength="2000" required style="width:100%;box-sizing:border-box;"></textarea>
+          <label for="req-notes" class="form-label">Verification Evidence &amp; Authority Statement</label>
+          <textarea id="req-notes" name="verification_notes" rows="4" placeholder="Provide proof of authority: official university accreditation ID, department URL, leadership directory link, corporate registration number, or official contact reference." maxlength="2000" required ></textarea>
         </div>
 
-        <div style="margin-top:12px;">
-          <button class="button" type="submit" style="width:100%;padding:10px 18px;font-size:1rem;">Submit Institutional Access Request</button>
+        <div class="mt-sm">
+          <button class="button full-width" type="submit">Submit Institutional Access Request</button>
         </div>
       </form>
     </section>
@@ -2177,18 +2184,7 @@ namespace Pathway;
   </div>
 
 <?php elseif ($screen === 'admin_dashboard'): ?>
-  <div class="student-nav no-print" style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;overflow-x:auto;">
-    <a class="nav-role-tab <?= ($activeTab ?? 'overview') === 'overview' ? 'active' : '' ?>" href="/admin/dashboard?tab=overview">Overview</a>
-    <a class="nav-role-tab <?= ($activeTab ?? '') === 'requests' ? 'active' : '' ?>" href="/admin/dashboard?tab=requests">
-      Access Requests <?php if (!empty($pendingRequests)): ?><span class="badge" style="background:var(--rose-500);color:#fff;margin-left:4px;padding:1px 6px;"><?= count($pendingRequests) ?></span><?php endif; ?>
-    </a>
-    <a class="nav-role-tab <?= ($activeTab ?? '') === 'orgs' ? 'active' : '' ?>" href="/admin/dashboard?tab=orgs">Organizations</a>
-    <a class="nav-role-tab <?= ($activeTab ?? '') === 'users' ? 'active' : '' ?>" href="/admin/dashboard?tab=users">User Directory</a>
-    <a class="nav-role-tab <?= ($activeTab ?? '') === 'invitations' ? 'active' : '' ?>" href="/admin/dashboard?tab=invitations">Invitations</a>
-    <a class="nav-role-tab <?= ($activeTab ?? '') === 'access_reviews' ? 'active' : '' ?>" href="/admin/dashboard?tab=access_reviews">Access Reviews</a>
-    <a class="nav-role-tab <?= ($activeTab ?? '') === 'audit' ? 'active' : '' ?>" href="/admin/dashboard?tab=audit">Audit Trail</a>
-    <a class="nav-role-tab <?= ($activeTab ?? '') === 'security' ? 'active' : '' ?>" href="/admin/dashboard?tab=security">Security Posture</a>
-  </div>
+  <?php admin_nav($activeTab ?? 'overview', $pendingRequests ?? []); ?>
 
   <section class="hero">
     <p class="eyebrow">Platform Administration &middot; Security &amp; Compliance</p>
@@ -2209,21 +2205,21 @@ namespace Pathway;
 
   <?php if (($activeTab ?? 'overview') === 'overview'): ?>
   <!-- TAB: OVERVIEW -->
-  <section class="dashboard-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:28px;">
+  <section class="metric-grid">
     <div class="card stat-card">
-      <div class="stat-value" style="color:var(--rose-400);"><?= (int) ($metrics['pending_requests'] ?? 0) ?></div>
+      <div class="stat-value text-danger"><?= (int) ($metrics['pending_requests'] ?? 0) ?></div>
       <div class="stat-label">Pending Access Requests</div>
     </div>
     <div class="card stat-card">
-      <div class="stat-value" style="color:var(--sky-400);"><?= (int) ($metrics['active_companies'] ?? 0) ?></div>
+      <div class="stat-value text-sky"><?= (int) ($metrics['active_companies'] ?? 0) ?></div>
       <div class="stat-label">Active Companies</div>
     </div>
     <div class="card stat-card">
-      <div class="stat-value" style="color:var(--violet-400);"><?= (int) ($metrics['active_colleges'] ?? 0) ?></div>
+      <div class="stat-value text-violet"><?= (int) ($metrics['active_colleges'] ?? 0) ?></div>
       <div class="stat-label">Active Colleges</div>
     </div>
     <div class="card stat-card">
-      <div class="stat-value" style="color:var(--emerald-400);"><?= (int) ($metrics['active_affiliations'] ?? 0) ?></div>
+      <div class="stat-value text-emerald"><?= (int) ($metrics['active_affiliations'] ?? 0) ?></div>
       <div class="stat-label">Verified Student Affiliations</div>
     </div>
     <div class="card stat-card">
@@ -2239,21 +2235,22 @@ namespace Pathway;
       <div class="stat-label">Job Applications</div>
     </div>
     <div class="card stat-card">
-      <div class="stat-value" style="color:var(--amber-400);"><?= (int) ($metrics['total_sensitive_accesses'] ?? 0) ?></div>
+      <div class="stat-value text-amber"><?= (int) ($metrics['total_sensitive_accesses'] ?? 0) ?></div>
       <div class="stat-label">Sensitive Access Events</div>
     </div>
   </section>
 
   <!-- Urgent Action Items: Pending Requests -->
   <?php if (!empty($pendingRequests)): ?>
-  <section class="card" style="margin-bottom:28px;border-left:4px solid var(--rose-500);">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-      <h2 style="font-size:1.2rem;margin:0;">Pending Access Requests Requiring Review (<?= count($pendingRequests) ?>)</h2>
-      <a class="button secondary" href="/admin/dashboard?tab=requests" style="padding:4px 10px;font-size:0.8rem;">Open Request Queue &rarr;</a>
+  <section class="card section-panel border-accent-danger">
+    <div class="section-header mb-sm">
+      <h2 class="section-title">Pending Access Requests Requiring Review (<?= count($pendingRequests) ?>)</h2>
+      <a class="button secondary" href="/admin/dashboard?tab=requests" class="btn-xs">Open Request Queue &rarr;</a>
     </div>
-    <p class="hint" style="margin-bottom:14px;">Review identity and institutional authority before issuing setup invitations.</p>
+    <p class="hint">Review identity and institutional authority before issuing setup invitations.</p>
     <div class="table-container">
       <table>
+        <caption class="sr-only">Pending access requests</caption>
         <thead>
           <tr>
             <th>Organization</th>
@@ -2270,12 +2267,12 @@ namespace Pathway;
           <tr>
             <td><strong><?= escape($req['name']) ?></strong></td>
             <td><span class="badge"><?= escape($req['type']) ?></span></td>
-            <td><a href="<?= escape($req['website']) ?>" target="_blank" rel="noopener noreferrer" style="font-size:0.85rem;"><?= escape($req['website']) ?></a></td>
-            <td><?= escape($req['contact_name']) ?><br><span style="font-size:0.75rem;color:var(--text-muted);"><?= escape($req['designation']) ?></span></td>
+            <td><a href="<?= escape($req['website']) ?>" target="_blank" rel="noopener noreferrer" class="text-sm"><?= escape($req['website']) ?></a></td>
+            <td><?= escape($req['contact_name']) ?><br><span class="text-muted text-xs"><?= escape($req['designation']) ?></span></td>
             <td><code><?= escape($req['contact_email']) ?></code></td>
             <td><?= escape(date('Y-m-d H:i', (int) $req['created_at'])) ?></td>
             <td>
-              <a class="button" href="/admin/dashboard?tab=requests" style="padding:4px 10px;font-size:0.8rem;">Review</a>
+              <a class="button" href="/admin/dashboard?tab=requests" class="btn-xs">Review</a>
             </td>
           </tr>
           <?php endforeach; ?>
@@ -2287,10 +2284,11 @@ namespace Pathway;
 
   <!-- Pending Organizations Section -->
   <?php if (!empty($pendingOrgs)): ?>
-  <section class="card" style="margin-bottom:28px;border-left:4px solid var(--amber-500);">
-    <h2 style="font-size:1.2rem;margin-bottom:12px;">Pending Organizations Awaiting Activation (<?= count($pendingOrgs) ?>)</h2>
+  <section class="card section-panel border-accent-warning">
+    <h2 class="section-title">Pending Organizations Awaiting Activation (<?= count($pendingOrgs) ?>)</h2>
     <div class="table-container">
       <table>
+        <caption class="sr-only">Suspended organizations</caption>
         <thead>
           <tr>
             <th>Name</th>
@@ -2308,10 +2306,10 @@ namespace Pathway;
             <td><code><?= escape($org['slug']) ?></code></td>
             <td><?= escape($org['creator_name'] ?? 'System') ?> (<?= escape($org['creator_email'] ?? '') ?>)</td>
             <td>
-              <form action="/admin/organizations/approve" method="post" style="margin:0;">
+              <form action="/admin/organizations/approve" method="post" class="inline-form">
                 <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
                 <input type="hidden" name="organization_id" value="<?= (int) $org['id'] ?>">
-                <button class="button" type="submit" style="padding:4px 10px;font-size:0.8rem;background:var(--emerald-600);">Approve &amp; Activate</button>
+                <button class="button" type="submit" class="sm">Approve &amp; Activate</button>
               </form>
             </td>
           </tr>
@@ -2323,12 +2321,13 @@ namespace Pathway;
   <?php endif; ?>
 
   <!-- Active Organizations -->
-  <section class="card" style="margin-bottom:28px;">
-    <h2 style="font-size:1.2rem;margin-bottom:12px;">Active Organizations (<?= count($activeOrgs ?? []) ?>)</h2>
-    <p class="hint" style="margin-bottom:14px;">Verified partner organizations authorized to operate on EIDOLON PATHWAY.</p>
+  <section class="card section-panel">
+    <h2 class="section-title">Active Organizations (<?= count($activeOrgs ?? []) ?>)</h2>
+    <p class="hint">Verified partner organizations authorized to operate on EIDOLON PATHWAY.</p>
     <?php if (!empty($activeOrgs)): ?>
     <div class="table-container">
       <table>
+        <caption class="sr-only">Registered organizations</caption>
         <thead>
           <tr>
             <th>ID</th>
@@ -2353,11 +2352,11 @@ namespace Pathway;
             <td><?= (int) ($org['job_count'] ?? 0) ?></td>
             <td><span class="badge badge-observed">Active</span></td>
             <td>
-              <form action="/admin/organizations/suspend" method="post" style="display:flex;gap:4px;margin:0;">
+              <form action="/admin/organizations/suspend" method="post" class="inline-form actions">
                 <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
                 <input type="hidden" name="organization_id" value="<?= (int) $org['id'] ?>">
-                <input name="reason" maxlength="200" placeholder="Reason" style="padding:3px 6px;font-size:0.75rem;width:110px;" required>
-                <button class="button secondary" type="submit" style="padding:3px 8px;font-size:0.75rem;color:var(--rose-400);border-color:var(--rose-500);">Suspend</button>
+                <input name="reason" maxlength="200" placeholder="Reason" class="input-sm" required>
+                <button class="button secondary danger sm" type="submit">Suspend</button>
               </form>
             </td>
           </tr>
@@ -2366,7 +2365,7 @@ namespace Pathway;
       </table>
     </div>
     <?php else: ?>
-    <div class="notice" style="margin:12px 0;">
+    <div class="notice">
       <p>No active organizations registered yet.</p>
     </div>
     <?php endif; ?>
@@ -2374,13 +2373,14 @@ namespace Pathway;
 
   <?php elseif (($activeTab ?? '') === 'requests'): ?>
   <!-- TAB: ACCESS REQUESTS -->
-  <section class="card" style="margin-bottom:28px;">
-    <h2 style="font-size:1.3rem;margin-bottom:8px;">Organization Access Requests Queue (<?= count($allRequests ?? []) ?>)</h2>
-    <p class="hint" style="margin-bottom:18px;">Self-service institutional onboarding applications. Verify domain ownership, accreditation, and authority to represent before approval.</p>
+  <section class="card section-panel">
+    <h2 class="section-title">Organization Access Requests Queue (<?= count($allRequests ?? []) ?>)</h2>
+    <p class="hint">Self-service institutional onboarding applications. Verify domain ownership, accreditation, and authority to represent before approval.</p>
 
     <?php if (!empty($allRequests)): ?>
     <div class="table-container">
       <table>
+        <caption class="sr-only">Pending organization access requests</caption>
         <thead>
           <tr>
             <th>ID</th>
@@ -2400,40 +2400,40 @@ namespace Pathway;
             <td><strong>#<?= (int) $req['id'] ?></strong></td>
             <td>
               <strong><?= escape($req['name']) ?></strong><br>
-              <a href="<?= escape($req['website']) ?>" target="_blank" rel="noopener noreferrer" style="font-size:0.8rem;"><?= escape($req['website']) ?></a>
+              <a href="<?= escape($req['website']) ?>" target="_blank" rel="noopener noreferrer" class="text-xs"><?= escape($req['website']) ?></a>
             </td>
             <td><span class="badge"><?= escape($req['type']) ?></span></td>
             <td>
               <?= escape($req['contact_name']) ?><br>
-              <span style="font-size:0.75rem;color:var(--text-muted);"><?= escape($req['designation']) ?></span>
+              <span class="text-muted text-xs"><?= escape($req['designation']) ?></span>
             </td>
             <td><code><?= escape($req['contact_email']) ?></code></td>
-            <td style="max-width:260px;font-size:0.8rem;white-space:pre-wrap;line-height:1.4;">
+            <td class="table-notes-wide">
               <?= escape($req['verification_notes']) ?>
             </td>
             <td><?= escape(date('Y-m-d H:i', (int) $req['created_at'])) ?></td>
             <td>
               <?php if ($req['status'] === 'PENDING'): ?>
-              <span class="badge" style="background:var(--amber-600);color:#fff;">PENDING</span>
+              <span class="badge badge-pending">PENDING</span>
               <?php elseif ($req['status'] === 'APPROVED'): ?>
-              <span class="badge" style="background:var(--emerald-600);color:#fff;">APPROVED</span>
+              <span class="badge badge-approved">APPROVED</span>
               <?php else: ?>
-              <span class="badge" style="background:var(--rose-600);color:#fff;">REJECTED</span>
+              <span class="badge badge-rejected">REJECTED</span>
               <?php endif; ?>
             </td>
             <td>
               <?php if ($req['status'] === 'PENDING'): ?>
-              <form action="/admin/requests/review" method="post" style="display:flex;flex-direction:column;gap:6px;margin:0;min-width:180px;">
+              <form action="/admin/requests/review" method="post" class="inline-form form-vertical">
                 <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
                 <input type="hidden" name="request_id" value="<?= (int) $req['id'] ?>">
-                <input name="review_notes" placeholder="Review notes (optional)" maxlength="500" style="padding:4px 8px;font-size:0.75rem;">
-                <div style="display:flex;gap:4px;">
-                  <button class="button" type="submit" name="decision" value="APPROVE" style="padding:4px 8px;font-size:0.75rem;background:var(--emerald-600);flex:1;">Approve</button>
-                  <button class="button secondary" type="submit" name="decision" value="REJECT" style="padding:4px 8px;font-size:0.75rem;color:var(--rose-400);border-color:var(--rose-500);flex:1;">Reject</button>
+                <input name="review_notes" placeholder="Review notes (optional)" maxlength="500" class="input-sm">
+                <div class="actions">
+                  <button class="button" type="submit" name="decision" value="APPROVE" class="btn-xs btn-approve flex-1">Approve</button>
+                  <button class="button secondary" type="submit" name="decision" value="REJECT" class="btn-xs btn-danger-outline flex-1">Reject</button>
                 </div>
               </form>
               <?php else: ?>
-              <div style="font-size:0.75rem;color:var(--text-muted);">
+              <div class="text-muted text-xs">
                 Reviewed by: <?= escape($req['reviewer_name'] ?? 'Admin') ?><br>
                 <?= escape(date('Y-m-d H:i', (int) ($req['reviewed_at'] ?? 0))) ?><br>
                 <?php if (!empty($req['review_notes'])): ?>
@@ -2454,13 +2454,14 @@ namespace Pathway;
 
   <?php elseif (($activeTab ?? '') === 'orgs'): ?>
   <!-- TAB: ORGANIZATIONS -->
-  <section class="card" style="margin-bottom:28px;">
-    <h2 style="font-size:1.3rem;margin-bottom:8px;">Registered Organizations (<?= count($allOrgs ?? []) ?>)</h2>
-    <p class="hint" style="margin-bottom:18px;">Companies and Colleges operating inside EIDOLON PATHWAY.</p>
+  <section class="card section-panel">
+    <h2 class="section-title">Registered Organizations (<?= count($allOrgs ?? []) ?>)</h2>
+    <p class="hint">Companies and Colleges operating inside EIDOLON PATHWAY.</p>
 
     <?php if (!empty($allOrgs)): ?>
     <div class="table-container">
       <table>
+        <caption class="sr-only">All organizations and status</caption>
         <thead>
           <tr>
             <th>ID</th>
@@ -2486,9 +2487,9 @@ namespace Pathway;
               <?php if ($org['status'] === 'ACTIVE'): ?>
               <span class="badge badge-observed">Active</span>
               <?php elseif ($org['status'] === 'PENDING'): ?>
-              <span class="badge" style="background:var(--amber-600);color:#fff;">Pending</span>
+              <span class="badge badge-pending">Pending</span>
               <?php else: ?>
-              <span class="badge" style="background:var(--rose-600);color:#fff;">Suspended</span>
+              <span class="badge badge-rejected">Suspended</span>
               <?php endif; ?>
             </td>
             <td><?= (int) ($org['member_count'] ?? 1) ?></td>
@@ -2496,20 +2497,20 @@ namespace Pathway;
             <td><?= escape(date('Y-m-d', (int) $org['created_at'])) ?></td>
             <td>
               <?php if ($org['status'] === 'PENDING'): ?>
-              <form action="/admin/organizations/approve" method="post" style="margin:0;">
+              <form action="/admin/organizations/approve" method="post" class="inline-form">
                 <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
                 <input type="hidden" name="organization_id" value="<?= (int) $org['id'] ?>">
-                <button class="button" type="submit" style="padding:4px 10px;font-size:0.75rem;background:var(--emerald-600);">Approve</button>
+                <button class="button" type="submit" class="sm">Approve</button>
               </form>
               <?php elseif ($org['status'] === 'ACTIVE'): ?>
-              <form action="/admin/organizations/suspend" method="post" style="display:flex;gap:4px;margin:0;">
+              <form action="/admin/organizations/suspend" method="post" class="inline-form actions">
                 <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
                 <input type="hidden" name="organization_id" value="<?= (int) $org['id'] ?>">
-                <input name="reason" maxlength="200" placeholder="Reason" style="padding:3px 6px;font-size:0.75rem;width:110px;" required>
-                <button class="button secondary" type="submit" style="padding:3px 8px;font-size:0.75rem;color:var(--rose-400);border-color:var(--rose-500);">Suspend</button>
+                <input name="reason" maxlength="200" placeholder="Reason" class="input-sm" required>
+                <button class="button secondary danger sm" type="submit">Suspend</button>
               </form>
               <?php else: ?>
-              <span style="font-size:0.75rem;color:var(--text-muted);">Suspended</span>
+              <span class="text-muted text-xs">Suspended</span>
               <?php endif; ?>
             </td>
           </tr>
@@ -2524,26 +2525,27 @@ namespace Pathway;
 
   <?php elseif (($activeTab ?? '') === 'users'): ?>
   <!-- TAB: USER DIRECTORY -->
-  <section class="card" style="margin-bottom:28px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
-      <h2 style="font-size:1.3rem;margin:0;">Platform User Directory (<?= count($usersList ?? []) ?>)</h2>
-      <form action="/admin/dashboard" method="get" style="display:flex;gap:8px;margin:0;">
+  <section class="card section-panel">
+    <div class="section-header">
+      <h2 class="section-title">Platform User Directory (<?= count($usersList ?? []) ?>)</h2>
+      <form action="/admin/dashboard" method="get" class="inline-form filter-bar">
         <input type="hidden" name="tab" value="users">
-        <input name="user_search" placeholder="Search name or email..." value="<?= escape($_GET['user_search'] ?? '') ?>" style="padding:6px 10px;font-size:0.85rem;width:180px;">
-        <select name="user_role" style="padding:6px 10px;font-size:0.85rem;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-subtle);border-radius:6px;">
+        <input name="user_search" placeholder="Search name or email..." value="<?= escape($_GET['user_search'] ?? '') ?>" class="input-sm">
+        <select name="user_role" >
           <option value="">All Roles</option>
           <option value="student" <?= ($_GET['user_role'] ?? '') === 'student' ? 'selected' : '' ?>>Students</option>
           <option value="company" <?= ($_GET['user_role'] ?? '') === 'company' ? 'selected' : '' ?>>Company Staff</option>
           <option value="college" <?= ($_GET['user_role'] ?? '') === 'college' ? 'selected' : '' ?>>College Placement</option>
           <option value="admin" <?= ($_GET['user_role'] ?? '') === 'admin' ? 'selected' : '' ?>>Platform Admin</option>
         </select>
-        <button class="button secondary" type="submit" style="padding:6px 12px;font-size:0.85rem;">Filter</button>
+        <button class="button secondary sm" type="submit">Filter</button>
       </form>
     </div>
 
     <?php if (!empty($usersList)): ?>
     <div class="table-container">
       <table>
+        <caption class="sr-only">User directory</caption>
         <thead>
           <tr>
             <th>User ID</th>
@@ -2575,43 +2577,44 @@ namespace Pathway;
 
   <?php elseif (($activeTab ?? '') === 'invitations'): ?>
   <!-- TAB: INVITATIONS -->
-  <section class="card" style="margin-bottom:28px;">
-    <h2 style="font-size:1.3rem;margin-bottom:8px;">Issue New Staff Invitation</h2>
-    <p class="hint" style="margin-bottom:16px;">Issue a cryptographically secure, single-use 7-day staff onboarding invitation to an active organization.</p>
-    <form action="/admin/invitations/create" method="post" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+  <section class="card section-panel">
+    <h2 class="section-title">Issue New Staff Invitation</h2>
+    <p class="hint">Issue a cryptographically secure, single-use 7-day staff onboarding invitation to an active organization.</p>
+    <form action="/admin/invitations/create" method="post" class="filter-bar">
       <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
-      <div style="flex:1;min-width:200px;">
-        <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Target Organization</label>
-        <select name="organization_id" required style="width:100%;padding:7px 10px;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-subtle);border-radius:6px;">
+      <div class="filter-field-grow">
+        <label class="label-sm">Target Organization</label>
+        <select name="organization_id" required>
           <?php foreach ($activeOrgs as $org): ?>
           <option value="<?= (int) $org['id'] ?>"><?= escape($org['name']) ?> (<?= escape($org['type']) ?>)</option>
           <?php endforeach; ?>
         </select>
       </div>
-      <div style="flex:1;min-width:200px;">
-        <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Invitee Email</label>
-        <input name="email" type="email" placeholder="staff@organization.com" required style="width:100%;box-sizing:border-box;">
+      <div class="filter-field-grow">
+        <label class="label-sm">Invitee Email</label>
+        <input name="email" type="email" placeholder="staff@organization.com" required >
       </div>
-      <div style="width:140px;">
-        <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px;">Role</label>
-        <select name="role" required style="width:100%;padding:7px 10px;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-subtle);border-radius:6px;">
+      <div class="filter-field-fixed">
+        <label class="label-sm">Role</label>
+        <select name="role" required>
           <option value="STAFF">STAFF</option>
           <option value="ADMIN">ADMIN</option>
           <option value="OWNER">OWNER</option>
           <option value="REVIEWER">REVIEWER</option>
         </select>
       </div>
-      <button class="button" type="submit" style="padding:8px 16px;">Issue Invitation</button>
+      <button class="button" type="submit">Issue Invitation</button>
     </form>
   </section>
 
-  <section class="card" style="margin-bottom:28px;">
-    <h2 style="font-size:1.3rem;margin-bottom:8px;">Issued Staff Invitations (<?= count($invitations ?? []) ?>)</h2>
-    <p class="hint" style="margin-bottom:16px;">Single-use invitation secrets are hashed with SHA-256 upon issuance. Raw tokens are never stored in the database.</p>
+  <section class="card section-panel">
+    <h2 class="section-title">Issued Staff Invitations (<?= count($invitations ?? []) ?>)</h2>
+    <p class="hint">Single-use invitation secrets are hashed with SHA-256 upon issuance. Raw tokens are never stored in the database.</p>
 
     <?php if (!empty($invitations)): ?>
     <div class="table-container">
       <table>
+        <caption class="sr-only">Invitation records</caption>
         <thead>
           <tr>
             <th>ID</th>
@@ -2634,13 +2637,13 @@ namespace Pathway;
             <td><span class="badge"><?= escape($inv['role']) ?></span></td>
             <td>
               <?php if ($inv['state'] === 'PENDING'): ?>
-              <span class="badge" style="background:var(--emerald-600);color:#fff;">PENDING</span>
+              <span class="badge badge-approved">PENDING</span>
               <?php elseif ($inv['state'] === 'USED'): ?>
               <span class="badge badge-observed">USED</span>
               <?php elseif ($inv['state'] === 'REVOKED'): ?>
-              <span class="badge" style="background:var(--rose-600);color:#fff;">REVOKED</span>
+              <span class="badge badge-rejected">REVOKED</span>
               <?php else: ?>
-              <span class="badge" style="background:var(--text-muted);color:#fff;">EXPIRED</span>
+              <span class="badge badge-expired">EXPIRED</span>
               <?php endif; ?>
             </td>
             <td><code><?= escape(substr($inv['token_hash'], 0, 12)) ?>...</code></td>
@@ -2648,13 +2651,13 @@ namespace Pathway;
             <td><?= escape(date('Y-m-d H:i', (int) $inv['expires_at'])) ?></td>
             <td>
               <?php if ($inv['state'] === 'PENDING'): ?>
-              <form action="/admin/invitations/revoke" method="post" style="margin:0;">
+              <form action="/admin/invitations/revoke" method="post" class="inline-form">
                 <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
                 <input type="hidden" name="invitation_id" value="<?= (int) $inv['id'] ?>">
-                <button class="button secondary" type="submit" style="padding:3px 8px;font-size:0.75rem;color:var(--rose-400);border-color:var(--rose-500);">Revoke</button>
+                <button class="button secondary danger sm" type="submit">Revoke</button>
               </form>
               <?php else: ?>
-              <span style="font-size:0.75rem;color:var(--text-muted);">&mdash;</span>
+              <span class="text-muted text-xs">&mdash;</span>
               <?php endif; ?>
             </td>
           </tr>
@@ -2669,13 +2672,14 @@ namespace Pathway;
 
   <?php elseif (($activeTab ?? '') === 'access_reviews'): ?>
   <!-- TAB: ACCESS REVIEWS -->
-  <section class="card" style="margin-bottom:28px;">
-    <h2 style="font-size:1.3rem;margin-bottom:8px;">Sensitive Record Access Reviews (<?= count($accessReviews ?? []) ?>)</h2>
-    <p class="hint" style="margin-bottom:16px;">Immutable security audit of all college placement officer and employer recruiter views of student profiles, resumes, and candidate dossiers.</p>
+  <section class="card section-panel">
+    <h2 class="section-title">Sensitive Record Access Reviews (<?= count($accessReviews ?? []) ?>)</h2>
+    <p class="hint">Immutable security audit of all college placement officer and employer recruiter views of student profiles, resumes, and candidate dossiers.</p>
 
     <?php if (!empty($accessReviews)): ?>
     <div class="table-container">
       <table>
+        <caption class="sr-only">Data access review events</caption>
         <thead>
           <tr>
             <th>Timestamp</th>
@@ -2694,29 +2698,29 @@ namespace Pathway;
             <td><?= escape(date('Y-m-d H:i:s', (int) $log['created_at'])) ?></td>
             <td>
               <strong><?= escape($log['accessor_name'] ?? 'Unknown') ?></strong><br>
-              <span style="font-size:0.75rem;color:var(--text-muted);"><?= escape($log['accessor_email'] ?? '') ?></span>
+              <span class="text-muted text-xs"><?= escape($log['accessor_email'] ?? '') ?></span>
             </td>
             <td>
               <span class="badge"><?= escape(strtoupper($log['accessor_role'] ?? 'user')) ?></span><br>
-              <span style="font-size:0.75rem;"><?= escape($log['accessor_org_name'] ?? 'Platform') ?></span>
+              <span class="text-xs"><?= escape($log['accessor_org_name'] ?? 'Platform') ?></span>
             </td>
             <td>
               <?php if (!empty($log['student_name'])): ?>
               <?= escape($log['student_name']) ?><br>
-              <span style="font-size:0.75rem;color:var(--text-muted);"><?= escape($log['student_email'] ?? '') ?></span>
+              <span class="text-muted text-xs"><?= escape($log['student_email'] ?? '') ?></span>
               <?php else: ?>
-              <span style="font-size:0.75rem;color:var(--text-muted);">Aggregated (Talent Search)</span>
+              <span class="text-muted text-xs">Aggregated (Talent Search)</span>
               <?php endif; ?>
             </td>
             <td><code><?= escape($log['action']) ?></code></td>
             <td>
               <?php if ($log['status'] === 'PERMITTED'): ?>
-              <span class="badge" style="background:var(--emerald-600);color:#fff;">PERMITTED</span>
+              <span class="badge badge-approved">PERMITTED</span>
               <?php else: ?>
-              <span class="badge" style="background:var(--rose-600);color:#fff;">BLOCKED</span>
+              <span class="badge badge-rejected">BLOCKED</span>
               <?php endif; ?>
             </td>
-            <td style="max-width:240px;font-size:0.75rem;font-family:monospace;word-break:break-all;">
+            <td class="table-mono">
               <?= escape($log['metadata_json']) ?>
             </td>
             <td><code><?= escape($log['ip_address']) ?></code></td>
@@ -2732,13 +2736,14 @@ namespace Pathway;
 
   <?php elseif (($activeTab ?? '') === 'audit'): ?>
   <!-- TAB: AUDIT TRAIL -->
-  <section class="card" style="margin-bottom:28px;">
-    <h2 style="font-size:1.3rem;margin-bottom:8px;">Platform Security &amp; Compliance Audit Trail</h2>
-    <p class="hint" style="margin-bottom:16px;">Immutable append-only record of administrative, organizational, and authorization events.</p>
+  <section class="card section-panel">
+    <h2 class="section-title">Platform Security &amp; Compliance Audit Trail</h2>
+    <p class="hint">Immutable append-only record of administrative, organizational, and authorization events.</p>
 
     <?php if (!empty($auditLogs)): ?>
     <div class="table-container">
       <table>
+        <caption class="sr-only">System audit trail</caption>
         <thead>
           <tr>
             <th>Timestamp</th>
@@ -2756,12 +2761,12 @@ namespace Pathway;
             <td><code><?= escape($log['action']) ?></code></td>
             <td>
               <?= escape($log['actor_name'] ?? 'System') ?><br>
-              <span style="font-size:0.75rem;color:var(--text-muted);"><?= escape($log['actor_email'] ?? '') ?></span>
+              <span class="text-muted text-xs"><?= escape($log['actor_email'] ?? '') ?></span>
             </td>
             <td>
               <?= escape($log['target_type']) ?> #<?= (int) $log['target_id'] ?>
             </td>
-            <td style="max-width:280px;font-size:0.8rem;font-family:monospace;word-break:break-all;">
+            <td class="table-mono">
               <?= escape($log['metadata_json']) ?>
             </td>
             <td><code><?= escape($log['ip_address']) ?></code></td>
@@ -2777,49 +2782,49 @@ namespace Pathway;
 
   <?php elseif (($activeTab ?? '') === 'security'): ?>
   <!-- TAB: SECURITY POSTURE -->
-  <section class="card" style="margin-bottom:28px;">
-    <h2 style="font-size:1.3rem;margin-bottom:8px;">Platform Security Posture &amp; Cryptographic Architecture</h2>
-    <p class="hint" style="margin-bottom:20px;">Defense-in-depth security verification mapped to OWASP ASVS 5.0 controls.</p>
+  <section class="card section-panel">
+    <h2 class="section-title">Platform Security Posture &amp; Cryptographic Architecture</h2>
+    <p class="hint">Defense-in-depth security verification mapped to OWASP ASVS 5.0 controls.</p>
 
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;">
-      <div style="border:1px solid var(--border-subtle);border-radius:8px;padding:16px;background:var(--bg-card);">
-        <h3 style="font-size:1rem;color:var(--emerald-400);margin-bottom:8px;">&#10003; Cryptographic Authentication</h3>
-        <p style="font-size:0.85rem;color:var(--text-secondary);line-height:1.5;">
+    <div class="security-grid">
+      <div class="security-card">
+        <h3 class="security-card-title">&#10003; Cryptographic Authentication</h3>
+        <p class="security-card-desc">
           All user credentials hashed using standard <code>PASSWORD_DEFAULT</code> (bcrypt/Argon2 with cost factor). Zero plaintext passwords stored or logged. Timing-safe verification prevents side-channel analysis.
         </p>
       </div>
 
-      <div style="border:1px solid var(--border-subtle);border-radius:8px;padding:16px;background:var(--bg-card);">
-        <h3 style="font-size:1rem;color:var(--emerald-400);margin-bottom:8px;">&#10003; Secret Token Architecture</h3>
-        <p style="font-size:0.85rem;color:var(--text-secondary);line-height:1.5;">
+      <div class="security-card">
+        <h3 class="security-card-title">&#10003; Secret Token Architecture</h3>
+        <p class="security-card-desc">
           Staff invitations and session tokens generated via CSPRNG (<code>random_bytes(32)</code>). Only 64-character SHA-256 hashes are stored. Possession of raw token proves legitimate email delivery.
         </p>
       </div>
 
-      <div style="border:1px solid var(--border-subtle);border-radius:8px;padding:16px;background:var(--bg-card);">
-        <h3 style="font-size:1rem;color:var(--emerald-400);margin-bottom:8px;">&#10003; Storage Isolation &amp; Integrity</h3>
-        <p style="font-size:0.85rem;color:var(--text-secondary);line-height:1.5;">
+      <div class="security-card">
+        <h3 class="security-card-title">&#10003; Storage Isolation &amp; Integrity</h3>
+        <p class="security-card-desc">
           SQLite database stored outside the web root with permissions <code>0600</code> and directory <code>0700</code>. Foreign key constraints enforced on connection. Transactional migrations with SHA-256 checksums.
         </p>
       </div>
 
-      <div style="border:1px solid var(--border-subtle);border-radius:8px;padding:16px;background:var(--bg-card);">
-        <h3 style="font-size:1rem;color:var(--emerald-400);margin-bottom:8px;">&#10003; Session &amp; CSRF Defense</h3>
-        <p style="font-size:0.85rem;color:var(--text-secondary);line-height:1.5;">
+      <div class="security-card">
+        <h3 class="security-card-title">&#10003; Session &amp; CSRF Defense</h3>
+        <p class="security-card-desc">
           Session rotation (<code>session_regenerate_id(true)</code>) enforced on every login. Cookies set with <code>HttpOnly=true</code> and <code>SameSite=Strict</code>. Per-session anti-CSRF token verified on all POST requests.
         </p>
       </div>
 
-      <div style="border:1px solid var(--border-subtle);border-radius:8px;padding:16px;background:var(--bg-card);">
-        <h3 style="font-size:1rem;color:var(--emerald-400);margin-bottom:8px;">&#10003; Multi-Tenant Authorization</h3>
-        <p style="font-size:0.85rem;color:var(--text-secondary);line-height:1.5;">
+      <div class="security-card">
+        <h3 class="security-card-title">&#10003; Multi-Tenant Authorization</h3>
+        <p class="security-card-desc">
           Explicit RBAC with deny-by-default permission checks. Strict tenant isolation prevents cross-organization data leakage or IDOR tampering across employer and institutional boundaries.
         </p>
       </div>
 
-      <div style="border:1px solid var(--border-subtle);border-radius:8px;padding:16px;background:var(--bg-card);">
-        <h3 style="font-size:1rem;color:var(--emerald-400);margin-bottom:8px;">&#10003; Granular Consent &amp; Audit</h3>
-        <p style="font-size:0.85rem;color:var(--text-secondary);line-height:1.5;">
+      <div class="security-card">
+        <h3 class="security-card-title">&#10003; Granular Consent &amp; Audit</h3>
+        <p class="security-card-desc">
           Student records protected by explicit consent controls. Master and granular sharing toggles take immediate effect on future accesses. All sensitive access events immutably audited.
         </p>
       </div>
@@ -2828,16 +2833,7 @@ namespace Pathway;
   <?php endif; ?>
 
 <?php elseif ($screen === 'affiliation_request'): ?>
-  <div class="student-nav no-print" style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;overflow-x:auto;">
-    <a class="nav-role-tab" href="/dashboard">Evidence Dashboard</a>
-    <a class="nav-role-tab" href="/jobs">Browse Jobs</a>
-    <a class="nav-role-tab" href="/applications">My Applications</a>
-    <a class="nav-role-tab" href="/profile">My Profile</a>
-    <a class="nav-role-tab" href="/resume">Resume Builder</a>
-    <a class="nav-role-tab" href="/achievements">Achievements</a>
-    <a class="nav-role-tab active" href="/affiliation/request">College Affiliation</a>
-    <a class="nav-role-tab" href="/privacy/settings">Privacy &amp; Consent</a>
-  </div>
+  <?php student_nav($screen); ?>
 
   <section class="hero">
     <p class="eyebrow">Institutional Verification &middot; Academic Portal</p>
@@ -2856,43 +2852,43 @@ namespace Pathway;
   <div class="notice success" role="status"><p><?= escape($flashSuccess) ?></p></div>
   <?php endif; ?>
 
-  <div class="card" style="padding:20px;margin-bottom:28px;">
-    <h2 style="font-size:1.1rem;margin-bottom:10px;">Institutional Status</h2>
+  <div class="card affiliation-status">
+    <h2 class="aff-heading">Institutional Status</h2>
     <?php
       $status = $profile['affiliation_status'] ?? 'NONE';
       $orgName = $profile['college_org_name'] ?? null;
     ?>
     <?php if ($status === 'AFFILIATED' && $orgName): ?>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <span class="badge badge-observed" style="font-size:0.9rem;padding:6px 14px;">AFFILIATED</span>
-        <span style="font-size:1rem;color:var(--text-primary);font-weight:600;"><?= escape($orgName) ?></span>
+      <div class="badge-group">
+        <span class="badge badge-observed affiliation-badge">AFFILIATED</span>
+        <span class="aff-status-label"><?= escape($orgName) ?></span>
       </div>
-      <p style="margin-top:10px;font-size:0.9rem;color:var(--text-muted);">
+      <p class="aff-note">
         Enrolled as <?= escape($profile['degree'] ?: 'Student') ?> (<?= escape($profile['department'] ?: 'Engineering') ?>) &middot; USN/Roll: <code><?= escape($profile['enrollment_number'] ?: 'N/A') ?></code> &middot; Class of <?= escape((string)($profile['graduation_year'] ?: 'N/A')) ?>.
       </p>
-      <div style="margin-top:14px;">
-        <a class="button secondary" href="/privacy/settings" style="font-size:0.85rem;padding:6px 14px;">Manage Privacy &amp; Sharing Permissions &rarr;</a>
+      <div class="mt-md">
+        <a class="button secondary" href="/privacy/settings" class="btn-sm">Manage Privacy &amp; Sharing Permissions &rarr;</a>
       </div>
     <?php elseif ($status === 'PENDING'): ?>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <span class="badge" style="font-size:0.9rem;padding:6px 14px;background:var(--amber-500);color:#000;">PENDING REVIEW</span>
-        <span style="font-size:0.95rem;color:var(--text-secondary);">Your affiliation request is awaiting review by college placement officers.</span>
+      <div class="badge-group">
+        <span class="badge badge-pending">PENDING REVIEW</span>
+        <span class="text-secondary">Your affiliation request is awaiting review by college placement officers.</span>
       </div>
     <?php elseif ($status === 'REVOKED'): ?>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <span class="badge badge-failed" style="font-size:0.9rem;padding:6px 14px;">AFFILIATION REVOKED</span>
-        <span style="font-size:0.95rem;color:var(--text-secondary);">Your institutional affiliation was revoked by college staff. You may submit a new verification request below.</span>
+      <div class="badge-group">
+        <span class="badge badge-failed affiliation-badge">AFFILIATION REVOKED</span>
+        <span class="text-secondary">Your institutional affiliation was revoked by college staff. You may submit a new verification request below.</span>
       </div>
     <?php else: ?>
-      <p style="font-size:0.95rem;color:var(--text-muted);margin:0;">
+      <p class="text-muted-body">
         You are not currently affiliated with a verified academic institution. Select your institution below and provide your enrollment credentials.
       </p>
     <?php endif; ?>
   </div>
 
   <?php if ($status !== 'AFFILIATED' && $status !== 'PENDING'): ?>
-  <div class="auth-panel" style="max-width:760px;margin-bottom:36px;">
-    <h2 style="font-size:1.2rem;margin-bottom:16px;">Request College Affiliation</h2>
+  <div class="auth-panel auth-panel">
+    <h2 class="section-title">Request College Affiliation</h2>
     <form action="/affiliation/request" method="post">
       <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
 
@@ -2913,7 +2909,7 @@ namespace Pathway;
         <p class="hint">Institutional identification number to verify your student enrollment.</p>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div class="form-grid">
         <div class="form-group">
           <label for="degree">Degree Program</label>
           <input id="degree" name="degree" maxlength="100" placeholder="e.g. B.E. / B.Tech Computer Science" required>
@@ -2934,18 +2930,19 @@ namespace Pathway;
         <textarea id="verification_note" name="verification_note" rows="3" maxlength="1000" placeholder="Add any additional context for placement cell coordinators..."></textarea>
       </div>
 
-      <button class="button" type="submit" style="align-self:flex-start;margin-top:10px;">
+      <button class="button" type="submit" class="aff-submit">
         Submit Affiliation Request
       </button>
     </form>
   </div>
   <?php endif; ?>
 
-  <section class="card" style="margin-bottom:32px;">
-    <h2 style="font-size:1.2rem;margin-bottom:16px;">Affiliation History &amp; Requests</h2>
+  <section class="card section-panel">
+    <h2 class="section-title">Affiliation History &amp; Requests</h2>
     <?php if (!empty($affiliationRequests)): ?>
     <div class="table-container">
       <table>
+        <caption class="sr-only">Affiliation request history</caption>
         <thead>
           <tr>
             <th>College Institution</th>
@@ -2976,18 +2973,18 @@ namespace Pathway;
             <td><?= escape((string) $req['graduation_year']) ?></td>
             <td><?= escape(date('Y-m-d H:i', (int) $req['created_at'])) ?></td>
             <td><span class="badge <?= $reqBadge ?>"><?= escape($reqStatus) ?></span></td>
-            <td style="max-width:200px;font-size:0.85rem;color:var(--text-muted);">
+            <td class="table-notes">
               <?= escape($req['review_decision_reason'] ?: 'No notes recorded') ?>
             </td>
             <td>
               <?php if ($reqStatus === 'PENDING'): ?>
-              <form action="/affiliation/cancel" method="post" style="margin:0;">
+              <form action="/affiliation/cancel" method="post" class="inline-form">
                 <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
                 <input type="hidden" name="request_id" value="<?= (int) $req['id'] ?>">
-                <button class="button secondary" type="submit" style="padding:4px 10px;font-size:0.75rem;color:var(--rose-400);border-color:var(--rose-500);">Cancel</button>
+                <button class="button secondary" type="submit" class="btn-xs btn-danger-outline">Cancel</button>
               </form>
               <?php else: ?>
-              <span style="color:var(--text-muted);">&mdash;</span>
+              <span class="text-muted">&mdash;</span>
               <?php endif; ?>
             </td>
           </tr>
@@ -2996,17 +2993,14 @@ namespace Pathway;
       </table>
     </div>
     <?php else: ?>
-    <div class="notice" style="margin:12px 0;">
+    <div class="notice">
       <p>No affiliation requests submitted yet.</p>
     </div>
     <?php endif; ?>
   </section>
 
 <?php elseif ($screen === 'college_affiliations'): ?>
-  <div class="student-nav no-print" style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;overflow-x:auto;">
-    <a class="nav-role-tab" href="/college/dashboard">Campus Placement Intelligence</a>
-    <a class="nav-role-tab active" href="/college/affiliations">Affiliation Review Queue</a>
-  </div>
+  <?php college_nav($screen); ?>
 
   <section class="hero">
     <p class="eyebrow">Placement Coordination &middot; <?= escape($org['org_name'] ?? 'College') ?></p>
@@ -3025,19 +3019,20 @@ namespace Pathway;
   <div class="notice success" role="status"><p><?= escape($flashSuccess) ?></p></div>
   <?php endif; ?>
 
-  <div style="display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap;align-items:center;">
-    <span style="font-size:0.85rem;color:var(--text-muted);font-weight:600;">Status Filter:</span>
-    <a class="button <?= ($selectedStatus ?? 'all') === 'all' ? '' : 'secondary' ?>" style="padding:6px 14px;font-size:0.85rem;" href="/college/affiliations">All (<?= count($requests ?? []) ?>)</a>
-    <a class="button <?= ($selectedStatus ?? '') === 'PENDING' ? '' : 'secondary' ?>" style="padding:6px 14px;font-size:0.85rem;" href="/college/affiliations?status=PENDING">Pending Review</a>
-    <a class="button <?= ($selectedStatus ?? '') === 'APPROVED' ? '' : 'secondary' ?>" style="padding:6px 14px;font-size:0.85rem;" href="/college/affiliations?status=APPROVED">Approved</a>
-    <a class="button <?= ($selectedStatus ?? '') === 'REJECTED' ? '' : 'secondary' ?>" style="padding:6px 14px;font-size:0.85rem;" href="/college/affiliations?status=REJECTED">Declined</a>
+  <div class="filter-bar">
+    <span class="label-sm">Status Filter:</span>
+    <a class="button <?= ($selectedStatus ?? 'all') === 'all' ? '' : 'secondary' ?> sm" href="/college/affiliations">All (<?= count($requests ?? []) ?>)</a>
+    <a class="button <?= ($selectedStatus ?? '') === 'PENDING' ? '' : 'secondary' ?> sm" href="/college/affiliations?status=PENDING">Pending Review</a>
+    <a class="button <?= ($selectedStatus ?? '') === 'APPROVED' ? '' : 'secondary' ?> sm" href="/college/affiliations?status=APPROVED">Approved</a>
+    <a class="button <?= ($selectedStatus ?? '') === 'REJECTED' ? '' : 'secondary' ?> sm" href="/college/affiliations?status=REJECTED">Declined</a>
   </div>
 
-  <section class="card" style="margin-bottom:32px;">
-    <h2 style="font-size:1.2rem;margin-bottom:16px;">Enrollment Verification Queue (<?= count($requests ?? []) ?>)</h2>
+  <section class="card section-panel">
+    <h2 class="section-title">Enrollment Verification Queue (<?= count($requests ?? []) ?>)</h2>
     <?php if (!empty($requests)): ?>
     <div class="table-container">
       <table>
+        <caption class="sr-only">Student affiliation review queue</caption>
         <thead>
           <tr>
             <th>Student Name &amp; Email</th>
@@ -3064,27 +3059,27 @@ namespace Pathway;
           <tr>
             <td>
               <strong><?= escape($r['student_name']) ?></strong><br>
-              <span style="font-size:0.8rem;color:var(--text-muted);"><?= escape($r['student_email']) ?></span>
+              <span class="text-muted text-xs"><?= escape($r['student_email']) ?></span>
             </td>
             <td><code><?= escape($r['enrollment_number']) ?></code></td>
-            <td><?= escape($r['degree']) ?><br><span style="font-size:0.75rem;color:var(--text-muted);"><?= escape($r['department']) ?></span></td>
+            <td><?= escape($r['degree']) ?><br><span class="text-muted text-xs"><?= escape($r['department']) ?></span></td>
             <td><?= escape((string) $r['graduation_year']) ?></td>
-            <td style="max-width:180px;font-size:0.85rem;color:var(--text-muted);"><?= escape($r['verification_note'] ?: 'None') ?></td>
+            <td class="filter-input"><?= escape($r['verification_note'] ?: 'None') ?></td>
             <td><?= escape(date('Y-m-d H:i', (int) $r['created_at'])) ?></td>
             <td><span class="badge <?= $badgeClass ?>"><?= escape($status) ?></span></td>
             <td>
               <?php if ($status === 'PENDING'): ?>
-              <form action="/college/affiliations/review" method="post" style="display:flex;flex-direction:column;gap:6px;margin:0;">
+              <form action="/college/affiliations/review" method="post" class="action-col">
                 <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
                 <input type="hidden" name="request_id" value="<?= (int) $r['id'] ?>">
-                <input type="text" name="reason" placeholder="Audit verification note..." style="padding:4px 8px;font-size:0.75rem;width:180px;" required>
-                <div style="display:flex;gap:6px;">
-                  <button class="button" type="submit" name="decision" value="APPROVED" style="padding:4px 8px;font-size:0.75rem;background:var(--emerald-600);">Approve</button>
-                  <button class="button secondary" type="submit" name="decision" value="REJECTED" style="padding:4px 8px;font-size:0.75rem;color:var(--rose-400);border-color:var(--rose-500);">Decline</button>
+                <input type="text" name="reason" placeholder="Audit verification note..." class="btn-xs full-width" required>
+                <div class="actions">
+                  <button class="button" type="submit" name="decision" value="APPROVED" class="btn-xs btn-approve">Approve</button>
+                  <button class="button secondary" type="submit" name="decision" value="REJECTED" class="btn-xs btn-danger-outline">Decline</button>
                 </div>
               </form>
               <?php else: ?>
-              <span style="font-size:0.8rem;color:var(--text-muted);">
+              <span class="text-muted text-xs">
                 <?= escape($r['review_decision_reason'] ?: 'Reviewed') ?><br>
                 <em>By: <?= escape($r['reviewer_name'] ?? 'Staff') ?></em>
               </span>
@@ -3096,23 +3091,14 @@ namespace Pathway;
       </table>
     </div>
     <?php else: ?>
-    <div class="notice" style="margin:12px 0;">
+    <div class="notice">
       <p>No affiliation requests in this view.</p>
     </div>
     <?php endif; ?>
   </section>
 
 <?php elseif ($screen === 'privacy_settings'): ?>
-  <div class="student-nav no-print" style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;overflow-x:auto;">
-    <a class="nav-role-tab" href="/dashboard">Evidence Dashboard</a>
-    <a class="nav-role-tab" href="/jobs">Browse Jobs</a>
-    <a class="nav-role-tab" href="/applications">My Applications</a>
-    <a class="nav-role-tab" href="/profile">My Profile</a>
-    <a class="nav-role-tab" href="/resume">Resume Builder</a>
-    <a class="nav-role-tab" href="/achievements">Achievements</a>
-    <a class="nav-role-tab" href="/affiliation/request">College Affiliation</a>
-    <a class="nav-role-tab active" href="/privacy/settings">Privacy &amp; Consent</a>
-  </div>
+  <?php student_nav($screen); ?>
 
   <section class="hero">
     <p class="eyebrow">Student Sovereignty &middot; Access Governance</p>
@@ -3131,92 +3117,93 @@ namespace Pathway;
   <div class="notice success" role="status"><p><?= escape($flashSuccess) ?></p></div>
   <?php endif; ?>
 
-  <div class="auth-panel" style="max-width:760px;margin-bottom:36px;">
+  <div class="auth-panel auth-panel">
     <form action="/privacy/settings" method="post">
       <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
 
-      <div style="background:var(--bg-surface);padding:18px;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);margin-bottom:24px;">
-        <h3 style="margin-top:0;font-size:1.1rem;color:var(--text-primary);">Institutional Placement Sharing (Master Gate)</h3>
-        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:14px;">
+      <div class="privacy-card">
+        <h3 class="privacy-title">Institutional Placement Sharing (Master Gate)</h3>
+        <p class="privacy-desc">
           Master switch for your associated college placement department (<?= escape($profile['college_org_name'] ?? 'Associated College') ?>). If turned off, all access is immediately denied with HTTP 403.
         </p>
-        <label style="display:flex;align-items:center;gap:12px;cursor:pointer;font-weight:600;">
-          <input type="checkbox" name="college_share_consent" value="1" <?= !empty($profile['college_share_consent']) ? 'checked' : '' ?> style="transform:scale(1.2);">
+        <label class="consent-label">
+          <input type="checkbox" name="college_share_consent" value="1" <?= !empty($profile['college_share_consent']) ? 'checked' : '' ?> >
           <span>Enable College Placement Cell Access</span>
         </label>
       </div>
 
-      <div style="background:var(--bg-surface);padding:18px;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);margin-bottom:24px;">
-        <h3 style="margin-top:0;font-size:1.1rem;color:var(--text-primary);">Granular Institutional Permissions</h3>
-        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:14px;">
+      <div class="privacy-card">
+        <h3 class="privacy-title">Granular Institutional Permissions</h3>
+        <p class="privacy-desc">
           When institutional sharing is enabled, choose exactly which data fields are accessible to placement coordinators:
         </p>
 
-        <div style="display:flex;flex-direction:column;gap:12px;">
-          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;">
-            <input type="checkbox" name="share_contact_details" value="1" <?= !empty($profile['share_contact_details']) ? 'checked' : '' ?> style="margin-top:3px;">
+        <div class="achievement-list">
+          <label class="consent-option">
+            <input type="checkbox" name="share_contact_details" value="1" <?= !empty($profile['share_contact_details']) ? 'checked' : '' ?> >
             <span>
               <strong>Share Contact Information</strong>
-              <span style="display:block;font-size:0.8rem;color:var(--text-muted);">Allow placement officers to view your primary email address. If unchecked, email is masked as <code>[Consent Withheld]</code>.</span>
+              <span class="consent-sub">Allow placement officers to view your primary email address. If unchecked, email is masked as <code>[Consent Withheld]</code>.</span>
             </span>
           </label>
 
-          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;">
-            <input type="checkbox" name="share_resume" value="1" <?= !empty($profile['share_resume']) ? 'checked' : '' ?> style="margin-top:3px;">
+          <label class="consent-option">
+            <input type="checkbox" name="share_resume" value="1" <?= !empty($profile['share_resume']) ? 'checked' : '' ?> >
             <span>
               <strong>Share Structured Resumes</strong>
-              <span style="display:block;font-size:0.8rem;color:var(--text-muted);">Allow placement officers to inspect your latest resume draft and verified skill citations.</span>
+              <span class="consent-sub">Allow placement officers to inspect your latest resume draft and verified skill citations.</span>
             </span>
           </label>
 
-          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;">
-            <input type="checkbox" name="share_achievements" value="1" <?= !empty($profile['share_achievements']) ? 'checked' : '' ?> style="margin-top:3px;">
+          <label class="consent-option">
+            <input type="checkbox" name="share_achievements" value="1" <?= !empty($profile['share_achievements']) ? 'checked' : '' ?> >
             <span>
               <strong>Share Verified Credentials &amp; Achievements</strong>
-              <span style="display:block;font-size:0.8rem;color:var(--text-muted);">Display certifications, hackathon awards, and project evidence in institutional reports.</span>
+              <span class="consent-sub">Display certifications, hackathon awards, and project evidence in institutional reports.</span>
             </span>
           </label>
 
-          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;">
-            <input type="checkbox" name="share_applications" value="1" <?= !empty($profile['share_applications']) ? 'checked' : '' ?> style="margin-top:3px;">
+          <label class="consent-option">
+            <input type="checkbox" name="share_applications" value="1" <?= !empty($profile['share_applications']) ? 'checked' : '' ?> >
             <span>
               <strong>Share Job Application Outcomes</strong>
-              <span style="display:block;font-size:0.8rem;color:var(--text-muted);">Allow placement officers to track your application counts, shortlists, and hiring status across platform employers.</span>
+              <span class="consent-sub">Allow placement officers to track your application counts, shortlists, and hiring status across platform employers.</span>
             </span>
           </label>
         </div>
       </div>
 
-      <div style="background:var(--bg-surface);padding:18px;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);margin-bottom:24px;">
-        <h3 style="margin-top:0;font-size:1.1rem;color:var(--text-primary);">Employer Talent Discovery (Opt-In Directory)</h3>
-        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:14px;">
+      <div class="privacy-card">
+        <h3 class="privacy-title">Employer Talent Discovery (Opt-In Directory)</h3>
+        <p class="privacy-desc">
           Allow verified platform employers to discover your public profile, skills, and achievements in candidate search before you apply to a specific job.
         </p>
-        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;">
-          <input type="checkbox" name="talent_discovery_opt_in" value="1" <?= !empty($profile['talent_discovery_opt_in']) ? 'checked' : '' ?> style="margin-top:3px;">
+        <label class="consent-option">
+          <input type="checkbox" name="talent_discovery_opt_in" value="1" <?= !empty($profile['talent_discovery_opt_in']) ? 'checked' : '' ?> >
           <span>
             <strong>Opt into Employer Talent Discovery</strong>
-            <span style="display:block;font-size:0.8rem;color:var(--text-muted);">Strictly opt-in only. Your profile is invisible to talent search unless this is checked.</span>
+            <span class="consent-sub">Strictly opt-in only. Your profile is invisible to talent search unless this is checked.</span>
           </span>
         </label>
       </div>
 
-      <button class="button" type="submit" style="align-self:flex-start;">Save Privacy Preferences</button>
+      <button class="button" type="submit">Save Privacy Preferences</button>
     </form>
   </div>
 
-  <section class="card" style="margin-bottom:32px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-      <h2 style="font-size:1.2rem;margin:0;">Recent Access Audit Events</h2>
-      <a class="button secondary" href="/privacy/access-log" style="font-size:0.8rem;padding:4px 12px;">View Complete Audit Trail &rarr;</a>
+  <section class="card section-panel">
+    <div class="section-header">
+      <h2 class="section-title">Recent Access Audit Events</h2>
+      <a class="button secondary" href="/privacy/access-log" class="btn-sm">View Complete Audit Trail &rarr;</a>
     </div>
-    <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:16px;">
+    <p class="text-detail mb-md">
       Immutable audit logs recording every external attempt by college staff or recruiters to inspect your sensitive records.
     </p>
 
     <?php if (!empty($recentLogs)): ?>
     <div class="table-container">
       <table>
+        <caption class="sr-only">Sensitive record access log</caption>
         <thead>
           <tr>
             <th>Timestamp</th>
@@ -3233,11 +3220,11 @@ namespace Pathway;
             <td><?= escape(date('Y-m-d H:i:s', (int) $log['accessed_at'])) ?></td>
             <td>
               <strong><?= escape($log['accessor_name']) ?></strong><br>
-              <span class="badge muted" style="font-size:0.75rem;"><?= escape(ucfirst($log['accessor_role'])) ?></span>
+              <span class="badge muted keyword-tag"><?= escape(ucfirst($log['accessor_role'])) ?></span>
             </td>
             <td><?= escape($log['organization_name'] ?: 'Platform') ?></td>
             <td><code><?= escape($log['record_type']) ?></code></td>
-            <td style="font-size:0.85rem;color:var(--text-muted);"><?= escape($log['access_context']) ?></td>
+            <td class="text-detail"><?= escape($log['access_context']) ?></td>
             <td>
               <?php if ((int)$log['granted'] === 1): ?>
               <span class="badge badge-observed">Granted</span>
@@ -3251,15 +3238,15 @@ namespace Pathway;
       </table>
     </div>
     <?php else: ?>
-    <div class="notice" style="margin:12px 0;">
+    <div class="notice">
       <p>No sensitive record access events recorded yet.</p>
     </div>
     <?php endif; ?>
   </section>
 
-  <section class="card" style="margin-bottom:32px;">
-    <h2 style="font-size:1.2rem;margin-top:0;margin-bottom:8px;">Linked Authentication Identities</h2>
-    <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:16px;">
+  <section class="card section-panel">
+    <h2 class="section-title-lg">Linked Authentication Identities</h2>
+    <p class="text-detail mb-md">
       Federated OAuth 2.0 / OpenID Connect credentials bound to this student account. Unlinking prevents access via that provider.
     </p>
 
@@ -3267,8 +3254,9 @@ namespace Pathway;
     <?php $configuredProviders = $configuredProviders ?? []; ?>
 
     <?php if (!empty($linkedIdentities)): ?>
-    <div class="table-container" style="margin-bottom:20px;">
+    <div class="table-container mb-md">
       <table>
+        <caption class="sr-only">Linked authentication identities</caption>
         <thead>
           <tr>
             <th>Provider</th>
@@ -3282,16 +3270,16 @@ namespace Pathway;
           <?php foreach ($linkedIdentities as $ident): ?>
           <tr>
             <td>
-              <strong style="text-transform:capitalize;"><?= escape($ident['provider']) ?></strong>
+              <strong class="text-capitalize"><?= escape($ident['provider']) ?></strong>
             </td>
             <td><code><?= escape(substr($ident['provider_subject_id'], 0, 16)) ?>...</code></td>
             <td><?= escape($ident['provider_email'] ?? '—') ?></td>
-            <td style="font-size:0.85rem;color:var(--text-muted);"><?= escape(date('Y-m-d H:i', (int) $ident['created_at'])) ?></td>
+            <td class="text-detail"><?= escape(date('Y-m-d H:i', (int) $ident['created_at'])) ?></td>
             <td>
-              <form action="/auth/unlink" method="post" style="display:inline;" onsubmit="return confirm('Unlink this social identity?');">
+              <form action="/auth/unlink" method="post" class="inline-form" onsubmit="return confirm('Unlink this social identity?');">
                 <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
                 <input type="hidden" name="provider" value="<?= escape($ident['provider']) ?>">
-                <button class="button secondary" type="submit" style="font-size:0.75rem;padding:4px 10px;color:var(--rose-400);">Unlink</button>
+                <button class="button secondary" type="submit" class="btn-sm btn-danger-text">Unlink</button>
               </form>
             </td>
           </tr>
@@ -3300,8 +3288,8 @@ namespace Pathway;
       </table>
     </div>
     <?php else: ?>
-    <div style="background:var(--bg-surface-elevated);padding:14px;border-radius:6px;border:1px solid var(--border-subtle);margin-bottom:18px;">
-      <p style="margin:0;font-size:0.85rem;color:var(--text-muted);">No third-party social identities are currently bound to your account.</p>
+    <div class="oauth-card">
+      <p class="text-detail m-0">No third-party social identities are currently bound to your account.</p>
     </div>
     <?php endif; ?>
 
@@ -3310,14 +3298,14 @@ namespace Pathway;
       $availableToLink = array_filter(array_keys($configuredProviders), fn($p) => !in_array($p, $boundProviders, true));
     ?>
     <?php if (!empty($availableToLink)): ?>
-    <div style="margin-top:16px;">
-      <h3 style="font-size:0.95rem;margin-bottom:8px;color:var(--text-primary);">Link Additional Provider</h3>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    <div class="mt-md">
+      <h3 class="oauth-title">Link Additional Provider</h3>
+      <div class="flex-row gap-sm flex-wrap">
         <?php foreach ($availableToLink as $p): ?>
-        <form action="/auth/link" method="post" style="display:inline;">
+        <form action="/auth/link" method="post" class="inline-form">
           <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
           <input type="hidden" name="provider" value="<?= escape($p) ?>">
-          <button class="button secondary" type="submit" style="font-size:0.85rem;padding:6px 14px;">
+          <button class="button secondary" type="submit" class="btn-sm">
             Link <?= escape(ucfirst($p)) ?> Account
           </button>
         </form>
@@ -3328,16 +3316,7 @@ namespace Pathway;
   </section>
 
 <?php elseif ($screen === 'privacy_access_log'): ?>
-  <div class="student-nav no-print" style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;overflow-x:auto;">
-    <a class="nav-role-tab" href="/dashboard">Evidence Dashboard</a>
-    <a class="nav-role-tab" href="/jobs">Browse Jobs</a>
-    <a class="nav-role-tab" href="/applications">My Applications</a>
-    <a class="nav-role-tab" href="/profile">My Profile</a>
-    <a class="nav-role-tab" href="/resume">Resume Builder</a>
-    <a class="nav-role-tab" href="/achievements">Achievements</a>
-    <a class="nav-role-tab" href="/affiliation/request">College Affiliation</a>
-    <a class="nav-role-tab active" href="/privacy/settings">Privacy &amp; Consent</a>
-  </div>
+  <?php student_nav($screen); ?>
 
   <section class="hero">
     <p class="eyebrow">Audit Integrity &middot; Access Logging</p>
@@ -3345,15 +3324,16 @@ namespace Pathway;
     <p>Comprehensive audit log of institutional placement officers and verified company recruiters who inspected your candidate records.</p>
   </section>
 
-  <div style="margin-bottom:20px;">
-    <a class="button secondary" href="/privacy/settings" style="font-size:0.85rem;padding:6px 14px;">&larr; Return to Privacy Settings</a>
+  <div class="mb-md">
+    <a class="button secondary" href="/privacy/settings" class="btn-sm">&larr; Return to Privacy Settings</a>
   </div>
 
-  <section class="card" style="margin-bottom:32px;">
-    <h2 style="font-size:1.2rem;margin-bottom:16px;">Complete Audit Trail (<?= count($accessLogs ?? []) ?>)</h2>
+  <section class="card section-panel">
+    <h2 class="section-title">Complete Audit Trail (<?= count($accessLogs ?? []) ?>)</h2>
     <?php if (!empty($accessLogs)): ?>
     <div class="table-container">
       <table>
+        <caption class="sr-only">Privacy access audit log</caption>
         <thead>
           <tr>
             <th>Timestamp</th>
@@ -3370,10 +3350,10 @@ namespace Pathway;
           <tr>
             <td><?= escape(date('Y-m-d H:i:s', (int) $log['accessed_at'])) ?></td>
             <td><strong><?= escape($log['accessor_name']) ?></strong></td>
-            <td><span class="badge muted" style="font-size:0.75rem;"><?= escape(ucfirst($log['accessor_role'])) ?></span></td>
+            <td><span class="badge muted keyword-tag"><?= escape(ucfirst($log['accessor_role'])) ?></span></td>
             <td><?= escape($log['organization_name'] ?: 'Platform Admin') ?></td>
             <td><code><?= escape($log['record_type']) ?></code></td>
-            <td style="font-size:0.85rem;color:var(--text-muted);"><?= escape($log['access_context']) ?></td>
+            <td class="text-detail"><?= escape($log['access_context']) ?></td>
             <td>
               <?php if ((int)$log['granted'] === 1): ?>
               <span class="badge badge-observed">Granted</span>
@@ -3387,23 +3367,14 @@ namespace Pathway;
       </table>
     </div>
     <?php else: ?>
-    <div class="notice" style="margin:12px 0;">
+    <div class="notice">
       <p>No access logs recorded for your profile yet.</p>
     </div>
     <?php endif; ?>
   </section>
 
 <?php elseif ($screen === 'achievements'): ?>
-  <div class="student-nav no-print" style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;overflow-x:auto;">
-    <a class="nav-role-tab" href="/dashboard">Evidence Dashboard</a>
-    <a class="nav-role-tab" href="/jobs">Browse Jobs</a>
-    <a class="nav-role-tab" href="/applications">My Applications</a>
-    <a class="nav-role-tab" href="/profile">My Profile</a>
-    <a class="nav-role-tab" href="/resume">Resume Builder</a>
-    <a class="nav-role-tab active" href="/achievements">Achievements</a>
-    <a class="nav-role-tab" href="/affiliation/request">College Affiliation</a>
-    <a class="nav-role-tab" href="/privacy/settings">Privacy &amp; Consent</a>
-  </div>
+  <?php student_nav($screen); ?>
 
   <section class="hero">
     <p class="eyebrow">Student Credentials &middot; Verified Portfolio</p>
@@ -3422,12 +3393,12 @@ namespace Pathway;
   <div class="notice success" role="status"><p><?= escape($flashSuccess) ?></p></div>
   <?php endif; ?>
 
-  <div class="auth-panel" style="max-width:760px;margin-bottom:36px;">
-    <h2 style="font-size:1.2rem;margin-bottom:16px;">Add New Achievement or Credential</h2>
+  <div class="auth-panel auth-panel">
+    <h2 class="section-title">Add New Achievement or Credential</h2>
     <form action="/achievements" method="post">
       <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div class="form-grid">
         <div class="form-group">
           <label for="category">Category</label>
           <select id="category" name="category" required>
@@ -3445,7 +3416,7 @@ namespace Pathway;
         </div>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div class="form-grid">
         <div class="form-group">
           <label for="issuer">Issuing Organization</label>
           <input id="issuer" name="issuer" maxlength="150" placeholder="e.g. AWS, IEEE, HackerEarth">
@@ -3482,65 +3453,60 @@ namespace Pathway;
         <textarea id="description" name="description" rows="3" maxlength="1000" placeholder="Summarize your key contribution, ranking, technologies used, or measurable results..."></textarea>
       </div>
 
-      <button class="button" type="submit" style="align-self:flex-start;">Add Achievement</button>
+      <button class="button" type="submit">Add Achievement</button>
     </form>
   </div>
 
-  <section class="card" style="margin-bottom:32px;">
-    <h2 style="font-size:1.2rem;margin-bottom:16px;">Your Verified Achievements (<?= count($achievements ?? []) ?>)</h2>
+  <section class="card section-panel">
+    <h2 class="section-title">Your Verified Achievements (<?= count($achievements ?? []) ?>)</h2>
     <?php if (!empty($achievements)): ?>
-    <div style="display:flex;flex-direction:column;gap:16px;">
+    <div class="achievement-list">
       <?php foreach ($achievements as $ach): ?>
-      <div style="padding:16px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border-subtle);display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
-        <div style="flex:1;">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
-            <span class="badge" style="font-size:0.75rem;text-transform:uppercase;"><?= escape($ach['category']) ?></span>
-            <strong style="font-size:1.05rem;color:var(--text-primary);"><?= escape($ach['title']) ?></strong>
+      <div class="achievement-card">
+        <div class="flex-1">
+          <div class="achievement-header">
+            <span class="badge badge-category"><?= escape($ach['category']) ?></span>
+            <strong class="achievement-title"><?= escape($ach['title']) ?></strong>
             <?php if (!empty($ach['issuer'])): ?>
-            <span style="font-size:0.85rem;color:var(--text-muted);">&middot; <?= escape($ach['issuer']) ?></span>
+            <span class="achievement-meta">&middot; <?= escape($ach['issuer']) ?></span>
             <?php endif; ?>
             <?php if (!empty($ach['issue_date'])): ?>
-            <span style="font-size:0.85rem;color:var(--text-muted);">(<?= escape($ach['issue_date']) ?>)</span>
+            <span class="achievement-meta">(<?= escape($ach['issue_date']) ?>)</span>
             <?php endif; ?>
           </div>
           <?php if (!empty($ach['description'])): ?>
-          <p style="font-size:0.9rem;color:var(--text-secondary);margin:6px 0;"><?= escape($ach['description']) ?></p>
+          <p class="achievement-desc"><?= escape($ach['description']) ?></p>
           <?php endif; ?>
-          <div style="display:flex;gap:12px;margin-top:8px;align-items:center;flex-wrap:wrap;">
+          <div class="achievement-meta">
             <?php if (!empty($ach['credential_url'])): ?>
-            <a href="<?= escape($ach['credential_url']) ?>" target="_blank" rel="noopener noreferrer" style="font-size:0.8rem;color:var(--brand-accent);">
+            <a href="<?= escape($ach['credential_url']) ?>" target="_blank" rel="noopener noreferrer" class="link-accent">
               Verify Credential &rarr;
             </a>
             <?php endif; ?>
             <?php if (!empty($ach['assessment_repo'])): ?>
-            <span class="badge badge-observed" style="font-size:0.75rem;">
+            <span class="badge badge-observed text-2xs">
               Linked Assessment: <?= escape($ach['assessment_repo']) ?>@<?= escape(substr($ach['assessment_sha'] ?? '', 0, 7)) ?>
             </span>
             <?php endif; ?>
           </div>
         </div>
-        <form action="/achievements/delete" method="post" style="margin:0;">
+        <form action="/achievements/delete" method="post" class="inline-form">
           <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
           <input type="hidden" name="id" value="<?= (int) $ach['id'] ?>">
-          <button class="button secondary" type="submit" style="padding:4px 10px;font-size:0.75rem;color:var(--rose-400);border-color:var(--rose-500);">Remove</button>
+          <button class="button secondary" type="submit" class="btn-xs btn-danger-outline">Remove</button>
         </form>
       </div>
       <?php endforeach; ?>
     </div>
     <?php else: ?>
-    <div class="notice" style="margin:12px 0;">
+    <div class="notice">
       <p>No achievements added yet. Use the form above to add certifications, hackathon projects, or awards.</p>
     </div>
     <?php endif; ?>
   </section>
 
 <?php elseif ($screen === 'company_talent'): ?>
-  <div class="student-nav no-print" style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;overflow-x:auto;">
-    <a class="nav-role-tab" href="/company/dashboard">Company Overview</a>
-    <a class="nav-role-tab" href="/company/jobs/new">+ Post New Position</a>
-    <a class="nav-role-tab" href="/company/applicants">Candidate Review</a>
-    <a class="nav-role-tab active" href="/company/talent">Talent Discovery</a>
-  </div>
+  <?php company_nav($screen); ?>
 
   <section class="hero">
     <p class="eyebrow">Verified Talent Search &middot; <?= escape($org['org_name'] ?? 'Company') ?></p>
@@ -3548,33 +3514,33 @@ namespace Pathway;
     <p>Discover student engineers who have explicitly opted into recruitment discovery with verified skills and portfolio achievements.</p>
   </section>
 
-  <div class="card" style="padding:20px;margin-bottom:24px;">
-    <form action="/company/talent" method="get" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:0;">
-      <input type="text" name="q" value="<?= escape($searchQuery ?? '') ?>" placeholder="Search by skill (e.g. Python, React, Go) or degree program..." style="flex:1;min-width:240px;padding:8px 12px;font-size:0.9rem;">
-      <button class="button" type="submit" style="padding:8px 18px;">Search Candidates</button>
+  <div class="card card-padded">
+    <form action="/company/talent" method="get" class="search-bar">
+      <input type="text" name="q" value="<?= escape($searchQuery ?? '') ?>" placeholder="Search by skill (e.g. Python, React, Go) or degree program..." class="search-input">
+      <button class="button" type="submit" class="btn-action">Search Candidates</button>
       <?php if (!empty($searchQuery)): ?>
-      <a class="button secondary" href="/company/talent" style="padding:8px 14px;">Clear Filter</a>
+      <a class="button secondary" href="/company/talent" class="btn-action-sm">Clear Filter</a>
       <?php endif; ?>
     </form>
   </div>
 
-  <div class="notice" style="margin-bottom:24px;">
+  <div class="notice">
     <h2>Consent-Guaranteed Discovery Active</h2>
     <p>This directory displays only candidates who have explicitly enabled <code>talent_discovery_opt_in = 1</code> in their private settings. Unconsenting students remain completely hidden.</p>
   </div>
 
-  <section class="card" style="margin-bottom:32px;">
-    <h2 style="font-size:1.2rem;margin-bottom:16px;">Opted-in Engineering Candidates (<?= count($talentList ?? []) ?>)</h2>
+  <section class="card section-panel">
+    <h2 class="section-title">Opted-in Engineering Candidates (<?= count($talentList ?? []) ?>)</h2>
     <?php if (!empty($talentList)): ?>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));gap:16px;">
+    <div class="talent-grid">
       <?php foreach ($talentList as $cand): ?>
-      <div style="background:var(--bg-surface);padding:18px;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);display:flex;flex-direction:column;justify-content:space-between;">
+      <div class="talent-card">
         <div>
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-            <strong style="font-size:1.1rem;color:var(--text-primary);"><?= escape($cand['student_name']) ?></strong>
-            <span class="badge badge-observed" style="font-size:0.75rem;">Opted In</span>
+          <div class="talent-header">
+            <strong class="talent-name"><?= escape($cand['student_name']) ?></strong>
+            <span class="badge badge-observed text-2xs">Opted In</span>
           </div>
-          <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 10px;">
+          <p class="talent-tagline">
             <?= escape($cand['degree'] ?: 'Engineering Student') ?> &middot; <?= escape($cand['college'] ?: 'Institution') ?>
             <?php if (!empty($cand['graduation_year'])): ?>
             (Class of <?= escape((string) $cand['graduation_year']) ?>)
@@ -3582,21 +3548,21 @@ namespace Pathway;
           </p>
 
           <?php if (!empty($cand['skills'])): ?>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
+          <div class="skill-tags">
             <?php foreach (array_slice(explode(',', $cand['skills']), 0, 5) as $sk): ?>
-            <span class="badge muted" style="font-size:0.75rem;"><?= escape(trim($sk)) ?></span>
+            <span class="badge muted keyword-tag"><?= escape(trim($sk)) ?></span>
             <?php endforeach; ?>
           </div>
           <?php endif; ?>
 
           <?php if (!empty($cand['bio'])): ?>
-          <p style="font-size:0.85rem;color:var(--text-secondary);margin:0 0 12px;line-height:1.4;">
+          <p class="talent-summary">
             <?= escape(substr($cand['bio'], 0, 160)) ?><?= strlen($cand['bio']) > 160 ? '...' : '' ?>
           </p>
           <?php endif; ?>
         </div>
 
-        <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border-subtle);padding-top:10px;margin-top:8px;font-size:0.8rem;color:var(--text-muted);">
+        <div class="talent-footer">
           <span><?= (int) ($cand['achievements_count'] ?? 0) ?> Credentials &middot; <?= (int) ($cand['resumes_count'] ?? 0) ?> Resumes</span>
           <?php if (!empty($cand['github_username'])): ?>
           <code>@<?= escape($cand['github_username']) ?></code>
@@ -3606,19 +3572,14 @@ namespace Pathway;
       <?php endforeach; ?>
     </div>
     <?php else: ?>
-    <div class="notice" style="margin:12px 0;">
+    <div class="notice">
       <p>No candidates found matching the search criteria.</p>
     </div>
     <?php endif; ?>
   </section>
 
 <?php elseif ($screen === 'company_candidate'): ?>
-  <div class="student-nav no-print" style="display:flex;gap:8px;margin-bottom:24px;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;overflow-x:auto;">
-    <a class="nav-role-tab" href="/company/dashboard">Company Overview</a>
-    <a class="nav-role-tab" href="/company/jobs/new">+ Post New Position</a>
-    <a class="nav-role-tab" href="/company/applicants">&larr; Candidate Review</a>
-    <a class="nav-role-tab" href="/company/talent">Talent Discovery</a>
-  </div>
+  <?php company_nav($screen); ?>
 
   <?php
     $app = $candidateBundle['application'] ?? [];
@@ -3630,71 +3591,71 @@ namespace Pathway;
   <section class="hero">
     <p class="eyebrow">Application Dossier &middot; <?= escape($org['org_name'] ?? 'Company') ?></p>
     <h1><?= escape($candProfile['name'] ?? 'Candidate') ?></h1>
-    <p style="margin-top:4px;">
+    <p class="badge-group mt-xs">
       Applied for <strong><?= escape($app['job_title'] ?? '') ?></strong> &middot;
       Status: <span class="badge <?= ($app['status'] ?? '') === 'shortlisted' ? 'badge-observed' : 'muted' ?>"><?= escape(ucfirst($app['status'] ?? '')) ?></span> &middot;
       Submitted: <?= escape(date('Y-m-d H:i', (int) ($app['created_at'] ?? time()))) ?>
     </p>
   </section>
 
-  <div class="card" style="padding:16px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+  <div class="card dossier-header">
     <div>
-      <span style="font-size:0.85rem;color:var(--text-muted);font-weight:600;">Candidate Email:</span>
-      <span style="font-size:0.95rem;color:var(--text-primary);margin-left:6px;"><?= escape($candProfile['email'] ?? '') ?></span>
+      <span class="label-sm">Candidate Email:</span>
+      <span class="dossier-value"><?= escape($candProfile['email'] ?? '') ?></span>
       <?php if (!empty($candProfile['github_username'])): ?>
-      <span style="margin:0 8px;color:var(--border-subtle);">|</span>
-      <span style="font-size:0.85rem;color:var(--text-muted);font-weight:600;">GitHub:</span>
+      <span class="dossier-sep">|</span>
+      <span class="label-sm">GitHub:</span>
       <code>github.com/<?= escape($candProfile['github_username']) ?></code>
       <?php endif; ?>
     </div>
 
-    <form action="/company/applicants/status" method="post" style="display:flex;gap:8px;margin:0;">
+    <form action="/company/applicants/status" method="post" class="dossier-actions">
       <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
       <input type="hidden" name="application_id" value="<?= (int) ($app['application_id'] ?? 0) ?>">
       <?php if (($app['status'] ?? '') !== 'shortlisted'): ?>
-      <button class="button" type="submit" name="status" value="shortlisted" style="padding:6px 14px;font-size:0.85rem;background:var(--emerald-600);">Shortlist Candidate</button>
+      <button class="button" type="submit" name="status" value="shortlisted" class="btn-sm btn-approve">Shortlist Candidate</button>
       <?php endif; ?>
       <?php if (($app['status'] ?? '') !== 'rejected'): ?>
-      <button class="button secondary" type="submit" name="status" value="rejected" style="padding:6px 14px;font-size:0.85rem;color:var(--rose-400);border-color:var(--rose-500);">Decline Application</button>
+      <button class="button secondary" type="submit" name="status" value="rejected" class="btn-sm btn-danger-outline">Decline Application</button>
       <?php endif; ?>
     </form>
   </div>
 
   <?php if (!empty($app['notes'])): ?>
-  <div class="card" style="padding:20px;margin-bottom:24px;">
-    <h3 style="margin-top:0;font-size:1.05rem;">Candidate Statement / Cover Note</h3>
-    <p style="font-size:0.9rem;color:var(--text-secondary);margin:0;line-height:1.5;"><?= escape($app['notes']) ?></p>
+  <div class="card card-padded">
+    <h3 class="intro-title">Candidate Statement / Cover Note</h3>
+    <p class="intro-body"><?= escape($app['notes']) ?></p>
   </div>
   <?php endif; ?>
 
   <?php if ($candResume): ?>
-  <div class="card" style="padding:24px;margin-bottom:24px;">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+  <div class="card card-padded-lg">
+    <div class="profile-header">
       <div>
-        <h2 style="font-size:1.3rem;margin:0 0 4px;"><?= escape($candResume['title'] ?? 'Resume') ?></h2>
-        <span style="font-size:0.85rem;color:var(--text-muted);">Updated <?= escape(date('Y-m-d', (int) ($candResume['updated_at'] ?? time()))) ?></span>
+        <h2 class="profile-name"><?= escape($candResume['title'] ?? 'Resume') ?></h2>
+        <span class="achievement-meta">Updated <?= escape(date('Y-m-d', (int) ($candResume['updated_at'] ?? time()))) ?></span>
       </div>
       <?php if (!empty($candResume['assessment_repo'])): ?>
-      <div style="text-align:right;">
-        <span class="badge badge-observed" style="font-size:0.8rem;">Verified GitHub Assessment</span><br>
-        <code style="font-size:0.75rem;"><?= escape($candResume['assessment_repo']) ?>@<?= escape(substr($candResume['assessment_sha'] ?? '', 0, 7)) ?></code>
+      <div class="ats-score">
+        <span class="badge badge-observed text-xs">Verified GitHub Assessment</span><br>
+        <code class="text-2xs"><?= escape($candResume['assessment_repo']) ?>@<?= escape(substr($candResume['assessment_sha'] ?? '', 0, 7)) ?></code>
       </div>
       <?php endif; ?>
     </div>
 
     <?php if (!empty($candResume['summary'])): ?>
-    <p style="font-size:0.95rem;color:var(--text-secondary);line-height:1.5;margin-bottom:20px;"><?= escape($candResume['summary']) ?></p>
+    <p class="profile-bio"><?= escape($candResume['summary']) ?></p>
     <?php endif; ?>
 
     <?php if (!empty($candResume['education'])): ?>
-    <h3 style="font-size:1rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:20px;border-bottom:1px solid var(--border-subtle);padding-bottom:6px;">Education</h3>
-    <div style="margin-bottom:16px;">
+    <h3 class="dossier-section-heading">Education</h3>
+    <div class="job-skills-section">
       <?php foreach ($candResume['education'] as $edu): ?>
-      <div style="margin-bottom:10px;">
+      <div class="mb-sm">
         <strong><?= escape($edu['institution'] ?? '') ?></strong> &middot; <?= escape($edu['degree'] ?? '') ?>
-        <span style="float:right;font-size:0.85rem;color:var(--text-muted);"><?= escape($edu['year'] ?? '') ?></span>
+        <span class="date-float"><?= escape($edu['year'] ?? '') ?></span>
         <?php if (!empty($edu['gpa'])): ?>
-        <div style="font-size:0.85rem;color:var(--text-muted);">GPA/Marks: <?= escape($edu['gpa']) ?></div>
+        <div class="text-detail">GPA/Marks: <?= escape($edu['gpa']) ?></div>
         <?php endif; ?>
       </div>
       <?php endforeach; ?>
@@ -3702,14 +3663,14 @@ namespace Pathway;
     <?php endif; ?>
 
     <?php if (!empty($candResume['experience'])): ?>
-    <h3 style="font-size:1rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:20px;border-bottom:1px solid var(--border-subtle);padding-bottom:6px;">Experience</h3>
-    <div style="margin-bottom:16px;">
+    <h3 class="dossier-section-heading">Experience</h3>
+    <div class="job-skills-section">
       <?php foreach ($candResume['experience'] as $exp): ?>
-      <div style="margin-bottom:12px;">
+      <div class="mb-sm">
         <strong><?= escape($exp['role'] ?? '') ?></strong> &middot; <?= escape($exp['company'] ?? '') ?>
-        <span style="float:right;font-size:0.85rem;color:var(--text-muted);"><?= escape($exp['start'] ?? '') ?> - <?= escape($exp['end'] ?? '') ?></span>
+        <span class="date-float"><?= escape($exp['start'] ?? '') ?> - <?= escape($exp['end'] ?? '') ?></span>
         <?php if (!empty($exp['desc'])): ?>
-        <p style="font-size:0.85rem;color:var(--text-secondary);margin:4px 0 0;line-height:1.4;"><?= escape($exp['desc']) ?></p>
+        <p class="text-body-sm"><?= escape($exp['desc']) ?></p>
         <?php endif; ?>
       </div>
       <?php endforeach; ?>
@@ -3717,16 +3678,16 @@ namespace Pathway;
     <?php endif; ?>
 
     <?php if (!empty($candResume['projects'])): ?>
-    <h3 style="font-size:1rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:20px;border-bottom:1px solid var(--border-subtle);padding-bottom:6px;">Technical Projects</h3>
-    <div style="margin-bottom:16px;">
+    <h3 class="dossier-section-heading">Technical Projects</h3>
+    <div class="job-skills-section">
       <?php foreach ($candResume['projects'] as $proj): ?>
-      <div style="margin-bottom:12px;">
+      <div class="mb-sm">
         <strong><?= escape($proj['name'] ?? '') ?></strong>
         <?php if (!empty($proj['url'])): ?>
-        <a href="<?= escape($proj['url']) ?>" target="_blank" rel="noopener noreferrer" style="font-size:0.8rem;color:var(--brand-accent);margin-left:6px;">[Code / Link]</a>
+        <a href="<?= escape($proj['url']) ?>" target="_blank" rel="noopener noreferrer" class="link-accent-sm">[Code / Link]</a>
         <?php endif; ?>
         <?php if (!empty($proj['desc'])): ?>
-        <p style="font-size:0.85rem;color:var(--text-secondary);margin:4px 0 0;line-height:1.4;"><?= escape($proj['desc']) ?></p>
+        <p class="text-body-sm"><?= escape($proj['desc']) ?></p>
         <?php endif; ?>
       </div>
       <?php endforeach; ?>
@@ -3734,13 +3695,13 @@ namespace Pathway;
     <?php endif; ?>
 
     <?php if (!empty($candResume['assessment_tasks'])): ?>
-    <h3 style="font-size:1rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:20px;border-bottom:1px solid var(--border-subtle);padding-bottom:6px;">Verified Portfolio Engineering Observations</h3>
-    <div style="margin-bottom:16px;">
+    <h3 class="dossier-section-heading">Verified Portfolio Engineering Observations</h3>
+    <div class="job-skills-section">
       <?php foreach ($candResume['assessment_tasks'] as $t): ?>
-      <div style="margin-bottom:8px;font-size:0.85rem;">
-        <span class="badge" style="font-size:0.75rem;margin-right:6px;">Priority <?= (int)$t['priority'] ?></span>
+      <div class="mb-xs text-sm">
+        <span class="badge tag-date">Priority <?= (int)$t['priority'] ?></span>
         <strong><?= escape($t['title']) ?></strong>
-        <div style="color:var(--text-muted);margin-left:24px;margin-top:2px;">Acceptance: <?= escape($t['acceptance']) ?></div>
+        <div class="activity-detail">Acceptance: <?= escape($t['acceptance']) ?></div>
       </div>
       <?php endforeach; ?>
     </div>
@@ -3748,30 +3709,30 @@ namespace Pathway;
   </div>
   <?php endif; ?>
 
-  <section class="card" style="margin-bottom:32px;">
-    <h3 style="font-size:1.1rem;margin-top:0;margin-bottom:14px;">Verified Credentials &amp; Achievements (<?= count($candAchievements) ?>)</h3>
+  <section class="card section-panel">
+    <h3 class="dossier-title">Verified Credentials &amp; Achievements (<?= count($candAchievements) ?>)</h3>
     <?php if (!empty($candAchievements)): ?>
-    <div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="achievement-list">
       <?php foreach ($candAchievements as $ca): ?>
-      <div style="padding:12px;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border-subtle);">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <span class="badge" style="font-size:0.75rem;"><?= escape($ca['category']) ?></span>
+      <div class="achievement-item">
+        <div class="achievement-header">
+          <span class="badge sm"><?= escape($ca['category']) ?></span>
           <strong><?= escape($ca['title']) ?></strong>
           <?php if (!empty($ca['issuer'])): ?>
-          <span style="font-size:0.85rem;color:var(--text-muted);">&middot; <?= escape($ca['issuer']) ?></span>
+          <span class="achievement-meta">&middot; <?= escape($ca['issuer']) ?></span>
           <?php endif; ?>
           <?php if (!empty($ca['issue_date'])): ?>
-          <span style="font-size:0.85rem;color:var(--text-muted);">(<?= escape($ca['issue_date']) ?>)</span>
+          <span class="achievement-meta">(<?= escape($ca['issue_date']) ?>)</span>
           <?php endif; ?>
         </div>
         <?php if (!empty($ca['description'])): ?>
-        <p style="font-size:0.85rem;color:var(--text-secondary);margin:6px 0 0;"><?= escape($ca['description']) ?></p>
+        <p class="achievement-desc"><?= escape($ca['description']) ?></p>
         <?php endif; ?>
       </div>
       <?php endforeach; ?>
     </div>
     <?php else: ?>
-    <p style="font-size:0.85rem;color:var(--text-muted);margin:0;">No additional achievements submitted by candidate.</p>
+    <p class="text-detail m-0">No additional achievements submitted by candidate.</p>
     <?php endif; ?>
   </section>
 
