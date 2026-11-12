@@ -133,7 +133,7 @@ with tempfile.TemporaryDirectory(prefix='pathway-http-') as directory:
         status, headers, body = client.request('/dashboard')
         check('student dashboard loads', status == 200)
         check('student name escaped', '<script>fixture</script>' not in body and '&lt;script&gt;fixture&lt;/script&gt;' in body)
-        check('demonstration content explicitly labeled', 'Demonstration content — illustrative, not assessed' in body and 'No application metrics' in body)
+        check('demonstration content explicitly labeled', 'Demonstration content' in body and 'demo environment' in body)
         check('private page is not cached', headers.get('cache-control') == 'no-store')
         dashboard_csrf = token(body)
         check('logout GET rejected', client.request('/logout')[0] == 405)

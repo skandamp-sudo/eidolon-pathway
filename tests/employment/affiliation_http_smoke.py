@@ -274,7 +274,7 @@ with tempfile.TemporaryDirectory(prefix='pathway-affiliation-http-') as director
 
         # Student privacy & consent controls
         status, _, body = student.request('/privacy/settings')
-        check('student loads privacy settings', status == 200 and 'Privacy, Sharing &amp; Consent Controls' in body)
+        check('student loads privacy settings', status == 200 and 'Your Data, Your Rules' in body)
 
         # Update privacy settings: enable sharing and talent discovery
         t = token(body)

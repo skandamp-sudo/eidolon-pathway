@@ -12,7 +12,7 @@ ini_set('display_errors', '0');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: strict-origin-when-cross-origin');
-header("Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
+header("Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
 header('Cache-Control: no-store');
 
 $screen = 'error';
@@ -82,9 +82,22 @@ try {
         '/auth/link' => ['POST'],
         '/auth/unlink' => ['POST'],
         '/logout' => ['POST'],
+        '/demo/student-login' => ['POST'],
         '/assets/pathway.css' => ['GET'],
         '/assets/theme.js' => ['GET'],
+        '/assets/futureglass.js' => ['GET'],
     ];
+    // Serve self-hosted font files (woff2 only, no path traversal)
+    if (is_string($path) && preg_match('#^/assets/fonts/[a-z0-9-]+/[A-Za-z0-9._-]+\.woff2$#', $path) && ($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
+        $fontFile = ROOT . '/public' . $path;
+        if (is_file($fontFile) && str_starts_with(realpath($fontFile), realpath(ROOT . '/public/assets/fonts/'))) {
+            header('Content-Type: font/woff2');
+            header('Cache-Control: public, max-age=31536000, immutable');
+            readfile($fontFile);
+            exit;
+        }
+        throw new HttpError(404, 'Font file not found.');
+    }
     if (!is_string($path) || !isset($routes[$path])) {
         throw new HttpError(404, 'This route is not available in the local student slice.');
     }
@@ -101,6 +114,11 @@ try {
     if ($path === '/assets/theme.js') {
         header('Content-Type: application/javascript; charset=UTF-8');
         readfile(ROOT . '/public/assets/theme.js');
+        exit;
+    }
+    if ($path === '/assets/futureglass.js') {
+        header('Content-Type: application/javascript; charset=UTF-8');
+        readfile(ROOT . '/public/assets/futureglass.js');
         exit;
     }
     if ((int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 8192) {
@@ -637,6 +655,30 @@ try {
                 };
             }
             header('Location: /privacy/settings', true, 303);
+            exit;
+        }
+        if ($path === '/demo/student-login') {
+            $dbPath = (string) (getenv('PATHWAY_DATABASE_PATH') ?: '');
+            if (!str_contains($dbPath, 'demo')) {
+                throw new HttpError(403, 'Instant demo evaluation is only permitted in the isolated demo environment.');
+            }
+            $stmt = $pdo->prepare("SELECT id, role FROM users WHERE email = 'demo.student.aarav@dsatm.test' LIMIT 1");
+            $stmt->execute();
+            $demoStudent = $stmt->fetch(\PDO::FETCH_ASSOC);
+            if (!$demoStudent || $demoStudent['role'] !== 'student') {
+                throw new HttpError(404, 'Demo student account not found.');
+            }
+            if (!session_regenerate_id(true)) {
+                throw new \RuntimeException('Session rotation failed.');
+            }
+            $_SESSION = [
+                'user_id' => (int) $demoStudent['id'],
+                'role' => 'student',
+                'last_seen' => time(),
+                'flash' => 'Signed in as demonstration candidate Aarav Patel.'
+            ];
+            csrf_token();
+            header('Location: /dashboard', true, 303);
             exit;
         }
         if ($path === '/register') {
