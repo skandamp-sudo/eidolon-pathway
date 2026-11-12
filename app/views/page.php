@@ -764,13 +764,13 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
         <?php if ($existingApplication): ?>
         <div class="application-status-box success">
           <div class="status-indicator-badge">&#x2713; Application Active</div>
-          <h3 class="status-title">Application Submitted</h3>
+          <h3 class="status-title">Application Already Submitted</h3>
           <p class="text-xs text-secondary mt-xs">
             Submitted on <strong><?= escape(date('Y-m-d H:i', (int) $existingApplication['created_at'])) ?></strong>.
           </p>
           <div class="mt-sm">
             <span class="badge <?= $existingApplication['status'] === 'shortlisted' ? 'badge-observed' : ($existingApplication['status'] === 'rejected' ? 'badge-failed' : 'muted') ?>">
-              Status: <?= escape(ucfirst($existingApplication['status'])) ?>
+              Current Status: <?= escape(ucfirst($existingApplication['status'])) ?>
             </span>
           </div>
           <a href="/applications" class="button secondary full-width mt-md text-center">View in Application Tracker &rarr;</a>

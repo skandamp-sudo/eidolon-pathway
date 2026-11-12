@@ -1,0 +1,28 @@
+{
+    frankenphp
+    order php_server before file_server
+}
+
+:{$PORT:8080} {
+    root * /app/public
+    encode zstd gzip
+
+    @forbidden {
+        path /.*
+        path *.sql
+        path *.sqlite
+        path *.db
+        path *.env*
+        path *.md
+        path *.json
+    }
+    respond @forbidden 404
+
+    php_server
+
+    file_server
+
+    log {
+        format console
+    }
+}

@@ -193,11 +193,11 @@ Use the dynamic credentials printed by `bin/seed_demo.php` (stored in `var/demo_
 
 ---
 
-## 7. Automated Test Suite (619 Automated Checks)
+## 7. Automated Test Suite (637 Automated Checks)
 
-EIDOLON PATHWAY maintains a 100% test pass rate across 12 PHP unit test suites and 10 Python HTTP smoke test suites:
+EIDOLON PATHWAY maintains a 100% test pass rate across 13 PHP unit test suites and 10 Python HTTP smoke test suites:
 
-### Running All PHP Unit Tests (286 Checks)
+### Running All PHP Unit Tests (304 Checks)
 ```bash
 php tests/sqlite/core_test.php
 php tests/evidence/agent_test.php
@@ -211,6 +211,7 @@ php tests/employment/affiliation_workflow_test.php
 php tests/organizations/org_request_workflow_test.php
 php tests/employment/resume_intelligence_test.php
 php tests/auth/oauth_workflow_test.php
+php tests/cloud_deployment_test.php
 ```
 
 ### Running All Python HTTP Smoke Tests (333 Checks)
@@ -245,8 +246,9 @@ tests/employment/affiliation_workflow_test.php   PHP Unit        15             
 tests/organizations/org_request_workflow_test.php PHP Unit       11              0       100% PASS
 tests/employment/resume_intelligence_test.php    PHP Unit        5               0       100% PASS
 tests/auth/oauth_workflow_test.php               PHP Unit        33              0       100% PASS
+tests/cloud_deployment_test.php                  PHP Unit/Cloud  18              0       100% PASS
 -------------------------------------------------------------------------------------------------------
-PHP UNIT TEST SUBTOTAL                                           286             0       100% PASS
+PHP UNIT & CLOUD TEST SUBTOTAL                                   304             0       100% PASS
 -------------------------------------------------------------------------------------------------------
 tests/sqlite/http_smoke.py                       HTTP Smoke      53              0       100% PASS
 tests/employment/employment_http_smoke.py        HTTP Smoke      17              0       100% PASS
@@ -261,7 +263,7 @@ tests/csp/browser_csp_test.py                    HTTP/Browser    30             
 -------------------------------------------------------------------------------------------------------
 PYTHON HTTP SMOKE & BROWSER CSP SUBTOTAL                         333             0       100% PASS
 =======================================================================================================
-TOTAL AUTOMATED TEST BASELINE                                    619             0       100% PASS
+TOTAL AUTOMATED TEST BASELINE                                    637             0       100% PASS
 =======================================================================================================
 ```
 
@@ -269,7 +271,31 @@ TOTAL AUTOMATED TEST BASELINE                                    619            
 
 ---
 
-## 8. License & Acknowledgments
+## 8. Railway Cloud Production Deployment
+
+EIDOLON PATHWAY deploys to Railway using the official Railpack PHP provider with FrankenPHP / Caddy and persistent volume storage.
+
+### Service Settings
+- **Builder:** `RAILPACK` (or Nixpacks via `nixpacks.toml`)
+- **Document Root:** `/app/public`
+- **Startup Command:** `sh /app/start-container.sh`
+- **Healthcheck Path:** `/health` (Timeout: 100s)
+- **Restart Policy:** On failure (Max retries: 3)
+
+### Persistent Volume Attachment
+- **Mount Path:** `/app/var`
+
+### Environment Variables
+| Variable | Value | Purpose |
+|---|---|---|
+| `PATHWAY_CLOUD_MODE` | `true` | Enables Railway production host and header enforcement |
+| `PATHWAY_DATA_DIR` | `/app/var` | Mount target for persistent SQLite & session storage |
+| `PATHWAY_DATABASE_PATH` | `/app/var/pathway.sqlite` | SQLite database file location |
+| `PATHWAY_ALLOWED_HOSTS` | `eidolon-pathway-production.up.railway.app` | Allowlisted host header domains |
+
+---
+
+## 9. License & Acknowledgments
 
 Built for the **Code for a Billion — Bharat Agentic-AI Hackathon 2026**.
 Developed with an uncompromising commitment to student data sovereignty, deterministic skills assessment, and high-assurance multi-tenant security.

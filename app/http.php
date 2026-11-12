@@ -22,9 +22,36 @@ $flash = null;
 try {
     $host = $_SERVER['HTTP_HOST'] ?? '';
     $port = (string) ($_SERVER['SERVER_PORT'] ?? '');
-    if (!in_array($host, ['127.0.0.1:' . $port, 'localhost:' . $port], true) ||
-        !in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true)) {
-        throw new HttpError(421, 'Open this application through its localhost address.');
+    $isCloud = is_cloud_mode();
+
+    if ($isCloud) {
+        $allowedHosts = ['eidolon-pathway-production.up.railway.app'];
+        $extraHosts = getenv('PATHWAY_ALLOWED_HOSTS');
+        if (is_string($extraHosts) && trim($extraHosts) !== '') {
+            foreach (explode(',', $extraHosts) as $h) {
+                $h = strtolower(trim($h));
+                if ($h !== '') {
+                    $allowedHosts[] = $h;
+                }
+            }
+        }
+        $incomingHost = strtolower(trim($host));
+        if (isset($_SERVER['HTTP_X_FORWARDED_HOST'])) {
+            $forwarded = explode(',', $_SERVER['HTTP_X_FORWARDED_HOST'])[0];
+            $incomingHost = strtolower(trim($forwarded));
+        }
+        $cleanHost = explode(':', $incomingHost)[0];
+        if (!in_array($cleanHost, $allowedHosts, true)) {
+            throw new HttpError(421, 'Host header not allowed.');
+        }
+        if (is_https_request()) {
+            header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+        }
+    } else {
+        if (!in_array($host, ['127.0.0.1:' . $port, 'localhost:' . $port], true) ||
+            !in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true)) {
+            throw new HttpError(421, 'Open this application through its localhost address.');
+        }
     }
     $uri = $_SERVER['REQUEST_URI'] ?? '';
     if (strlen($uri) > 2048) {
@@ -83,6 +110,7 @@ try {
         '/auth/unlink' => ['POST'],
         '/logout' => ['POST'],
         '/demo/student-login' => ['POST'],
+        '/health' => ['GET'],
         '/assets/pathway.css' => ['GET'],
         '/assets/theme.js' => ['GET'],
         '/assets/futureglass.js' => ['GET'],
@@ -120,6 +148,22 @@ try {
         header('Content-Type: application/javascript; charset=UTF-8');
         readfile(ROOT . '/public/assets/futureglass.js');
         exit;
+    }
+    if ($path === '/health') {
+        try {
+            $pdo = database();
+            $pdo->query('SELECT 1')->fetch();
+            http_response_code(200);
+            header('Content-Type: application/json; charset=UTF-8');
+            echo json_encode(['status' => 'healthy', 'ready' => true], JSON_UNESCAPED_SLASHES);
+            exit;
+        } catch (\Throwable $e) {
+            error_log('Health check failed: ' . $e->getMessage());
+            http_response_code(503);
+            header('Content-Type: application/json; charset=UTF-8');
+            echo json_encode(['status' => 'unhealthy', 'ready' => false], JSON_UNESCAPED_SLASHES);
+            exit;
+        }
     }
     if ((int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 8192) {
         throw new HttpError(413, 'The submitted form is too large.');
@@ -1083,7 +1127,7 @@ try {
     $screen = 'error';
 } catch (\Throwable $error) {
     http_response_code(503);
-    error_log('pathway.request_failed');
+    error_log('pathway.request_failed: ' . $error->getMessage());
     $message = 'Local storage is unavailable or incompatible. Check initialization and the server terminal.';
     $screen = 'error';
 }

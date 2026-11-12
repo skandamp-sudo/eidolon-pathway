@@ -25,6 +25,27 @@ function runtime_check(): void
     }
 }
 
+function is_cloud_mode(): bool
+{
+    return getenv('PATHWAY_CLOUD_MODE') === 'true'
+        || getenv('PATHWAY_ENV') === 'production'
+        || getenv('RAILWAY_ENVIRONMENT') !== false;
+}
+
+function is_https_request(): bool
+{
+    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+        return true;
+    }
+    if ((int) ($_SERVER['SERVER_PORT'] ?? 0) === 443) {
+        return true;
+    }
+    if (is_cloud_mode() && isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https') {
+        return true;
+    }
+    return false;
+}
+
 function data_directory(bool $create = false): string
 {
     $path = getenv('PATHWAY_DATA_DIR') ?: ROOT . '/var';
@@ -38,11 +59,21 @@ function data_directory(bool $create = false): string
     if ($resolved === '' || $resolved === $public || str_starts_with($resolved, $public . '/')) {
         throw new \RuntimeException('Data must be outside the public document root.');
     }
-    if (!is_dir($path) && (!$create || !mkdir($path, 0700))) {
-        throw new \RuntimeException('Initialize local storage with bin/init.php first.');
+    $isCloud = is_cloud_mode();
+    if (!is_dir($path)) {
+        if (!$create && !$isCloud) {
+            throw new \RuntimeException('Initialize local storage with bin/init.php first.');
+        }
+        if (!@mkdir($path, 0700, true) && !is_dir($path)) {
+            throw new \RuntimeException('Initialize local storage with bin/init.php first.');
+        }
     }
     if ((fileperms($path) & 0077) !== 0) {
-        throw new \RuntimeException('Data directory permissions must be 0700.');
+        @chmod($path, 0700);
+        clearstatcache(true, $path);
+        if ((fileperms($path) & 0077) !== 0) {
+            throw new \RuntimeException('Data directory permissions must be 0700.');
+        }
     }
     return (string) realpath($path);
 }
@@ -51,7 +82,8 @@ function database(bool $initialize = false, ?string $customPath = null): \PDO
 {
     runtime_check();
     umask(0077);
-    $dataDir = data_directory($initialize);
+    $isCloud = is_cloud_mode();
+    $dataDir = data_directory($initialize || $isCloud);
     $envPath = getenv('PATHWAY_DATABASE_PATH');
     if ($customPath !== null) {
         $path = $customPath;
@@ -70,11 +102,22 @@ function database(bool $initialize = false, ?string $customPath = null): \PDO
     if ($public && ($resolvedDir === $public || str_starts_with((string) $resolvedDir, $public . '/'))) {
         throw new \RuntimeException('Database must be outside the public document root.');
     }
-    if (is_link($path) || (!$initialize && !is_file($path))) {
-        throw new \RuntimeException('Initialize the local database first.');
+    if (is_link($path)) {
+        throw new \RuntimeException('Symlinks are not allowed for database path.');
+    }
+    if (!is_file($path)) {
+        if ($isCloud && !$initialize) {
+            initialize_database(database(true, $path));
+        } elseif (!$initialize) {
+            throw new \RuntimeException('Initialize the local database first.');
+        }
     }
     if (is_file($path) && (fileperms($path) & 0077) !== 0) {
-        throw new \RuntimeException('Database permissions must be 0600.');
+        @chmod($path, 0600);
+        clearstatcache(true, $path);
+        if ((fileperms($path) & 0077) !== 0) {
+            throw new \RuntimeException('Database permissions must be 0600.');
+        }
     }
     $pdo = new \PDO('sqlite:' . $path, null, null, [
         \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
@@ -248,16 +291,21 @@ function throttle(\PDO $pdo, string $action): void
 function start_session(): void
 {
     $directory = data_directory() . '/sessions';
-    if (is_link($directory) || (!is_dir($directory) && !mkdir($directory, 0700))) {
+    if (is_link($directory) || (!is_dir($directory) && !@mkdir($directory, 0700, true))) {
         throw new \RuntimeException('Session storage unavailable.');
     }
+    if ((fileperms($directory) & 0077) !== 0) {
+        @chmod($directory, 0700);
+    }
     session_save_path($directory);
-    session_name('pathway_local');
+    $isCloud = is_cloud_mode();
+    session_name($isCloud ? 'pathway_session' : 'pathway_local');
     ini_set('session.use_strict_mode', '1');
     ini_set('session.use_only_cookies', '1');
     ini_set('session.gc_maxlifetime', '1800');
     session_cache_limiter(''); // Keep the explicit no-store policy from the controller.
-    session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'secure' => false, 'httponly' => true, 'samesite' => 'Strict']);
+    $secure = $isCloud && is_https_request();
+    session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'secure' => $secure, 'httponly' => true, 'samesite' => 'Strict']);
     if (!session_start()) {
         throw new \RuntimeException('Session unavailable.');
     }

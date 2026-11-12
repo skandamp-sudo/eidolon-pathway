@@ -13,3 +13,9 @@ var/
 *credentials*.json
 demo_credentials.json
 config.php
+__pycache__/
+*.pyc
+.pytest_cache/
+.agent/
+.agents/
+.codex/
