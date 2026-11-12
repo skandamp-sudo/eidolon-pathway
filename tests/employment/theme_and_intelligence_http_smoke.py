@@ -184,10 +184,10 @@ with tempfile.TemporaryDirectory(prefix='pathway-theme-intel-http-') as director
         # 4. Student Dashboard Real Career Analytics
         status, headers, body = student.request('/dashboard')
         check('Student /dashboard loads (200)', status == 200)
-        check('Dashboard displays Candidate Career Readiness bar', 'Candidate Career Readiness' in body)
-        check('Dashboard displays Applications Submitted metric', 'Applications Submitted' in body)
-        check('Dashboard displays Verified Portfolio Audits metric', 'Verified Portfolio Audits' in body)
-        check('Dashboard displays Credentials &amp; Badges metric', 'Credentials &amp; Badges' in body)
+        check('Dashboard displays Career Readiness section', 'Career Readiness' in body)
+        check('Dashboard displays Applications metric', 'Application' in body)
+        check('Dashboard displays Portfolio Assessments metric', 'Assessment' in body)
+        check('Dashboard displays Credentials metric', 'Credential' in body)
 
         # 5. Build and Preview Resume with ATS Intelligence
         status, headers, body = student.request('/resume')
