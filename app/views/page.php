@@ -99,6 +99,7 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
     'admin_login' => 'Platform Administration Sign In',
     'admin_dashboard' => 'Platform Governance & Audit',
     'request_access' => 'Request Institutional Access',
+    'accept_invitation' => 'Accept Staff Invitation',
     default => 'Student Access',
   } ?> · EIDOLON PATHWAY</title>
   <script src="/assets/theme.js"></script>
@@ -121,6 +122,7 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
       <a class="nav-role-tab <?= str_starts_with($screen, 'college_') ? 'active' : '' ?>" href="/college/login">College</a>
       <a class="nav-role-tab <?= str_starts_with($screen, 'admin_') ? 'active' : '' ?>" href="/admin/login">Admin</a>
       <a class="nav-role-tab <?= $screen === 'request_access' ? 'active' : '' ?>" href="/request-access">Access</a>
+      <a class="nav-role-tab <?= $screen === 'accept_invitation' ? 'active' : '' ?>" href="/invite">Accept Invite</a>
     </nav>
 
     <div class="nav-actions">
@@ -1780,6 +1782,11 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
       </form>
 
       <p class="switch">
+        Invited team member?
+        <a href="/invite">Accept staff invitation &rarr;</a>
+      </p>
+
+      <p class="switch">
         Student applicant?
         <a href="/login">Student Sign In &rarr;</a>
       </p>
@@ -2171,6 +2178,11 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
 
         <button class="button" type="submit">Sign In to College Portal</button>
       </form>
+
+      <p class="switch">
+        Invited placement officer?
+        <a href="/invite">Accept staff invitation &rarr;</a>
+      </p>
 
       <p class="switch">
         Student seeking internships?
@@ -2619,6 +2631,180 @@ function admin_nav(string $activeTab, array $pendingRequests = []): void {
           </p>
         </div>
       </div>
+    </div>
+    <?php endif; ?>
+  </div>
+
+<?php elseif ($screen === 'accept_invitation'): ?>
+  <div class="access-request-container">
+    <header class="workspace-hero text-center mb-xl">
+      <div class="future-badge">
+        <span class="badge-dot"></span>
+        <span>STAFF ONBOARDING &middot; CRYPTOGRAPHIC ADMISSION</span>
+      </div>
+      <h1>Accept Staff Invitation</h1>
+      <p class="workspace-hero-sub">Single-use token verification and verified staff onboarding for approved companies and accredited universities.</p>
+    </header>
+
+    <?php
+      $flashError = $flashError ?? ($_SESSION['flash_error'] ?? null);
+      $flashSuccess = $flash ?? ($_SESSION['flash'] ?? null);
+      unset($_SESSION['flash_error'], $_SESSION['flash']);
+    ?>
+    <?php if (is_string($flashError)): ?>
+    <div class="notice error mb-lg" role="alert"><p><?= escape($flashError) ?></p></div>
+    <?php elseif (is_string($flashSuccess)): ?>
+    <div class="notice success mb-lg" role="status"><p><?= escape($flashSuccess) ?></p></div>
+    <?php endif; ?>
+
+    <?php if (isset($invitationError) && $invitationError !== null): ?>
+    <!-- Invalid / Expired / Revoked / Consumed Token State -->
+    <div class="futureglass-card text-center py-xl" style="max-width: 640px; margin: 0 auto;">
+      <div class="mb-md" style="font-size: 2.5rem; color: #FF5A5F;">&#x2717;</div>
+      <h2 class="card-title-sm" style="font-size: 1.25rem;">Invitation Token Problem</h2>
+      <p class="text-danger mt-sm"><?= escape($invitationError) ?></p>
+      <p class="hint mt-md" style="line-height: 1.6;">
+        Staff invitation tokens are single-use cryptographic secrets with a 7-day validity window. If your token was revoked, already consumed, or expired, please request a new invitation from your organization administrator.
+      </p>
+      <div class="actions actions-center mt-lg">
+        <a class="button button-futureglass" href="/invite">Enter a Different Token</a>
+        <a class="button secondary" href="/request-access">Request Institutional Access</a>
+      </div>
+    </div>
+
+    <?php elseif ($invitation === null): ?>
+    <!-- Token Entry Form (User has not yet passed a token) -->
+    <div class="futureglass-card" style="max-width: 640px; margin: 0 auto;">
+      <h2 class="card-title-sm mb-sm">&#x25C7; Enter Staff Invitation Token</h2>
+      <p class="hint mb-lg">
+        Enter the 64-character cryptographic token provided in your official institutional invitation email.
+      </p>
+
+      <form action="/invite" method="get">
+        <div class="form-group">
+          <label for="inv-token" class="form-label">Invitation Token</label>
+          <input id="inv-token" name="token" type="text" placeholder="e.g. 9b84a...64 hex characters" maxlength="128" required autocomplete="off" class="font-mono">
+          <p class="hint">The token was generated when your organization administrator provisioned your seat.</p>
+        </div>
+
+        <div class="form-actions mt-lg">
+          <button class="button button-futureglass full-width" type="submit">Verify Invitation Token &rarr;</button>
+        </div>
+      </form>
+
+      <hr class="card-divider">
+
+      <div class="text-center" style="font-size: 0.85rem;">
+        <p>Awaiting institutional approval? <a href="/request-access" class="link-accent">Request Organization Access &rarr;</a></p>
+        <p class="mt-xs">Student candidate? <a href="/login" class="link-accent">Student Sign In &rarr;</a></p>
+      </div>
+    </div>
+
+    <?php else: ?>
+    <!-- Valid Token State: Show invitation metadata & onboarding actions -->
+    <div class="futureglass-card" style="max-width: 640px; margin: 0 auto;">
+      <!-- Organization & Role Badge Header -->
+      <div class="section-header mb-md">
+        <div>
+          <span class="badge badge-observed"><?= escape($invitation['organization_type']) ?> STAFF SEAT</span>
+          <h2 class="heading-md mt-xs"><?= escape($invitation['organization_name']) ?></h2>
+          <p class="hint mt-2xs">Role: <strong><?= escape($invitation['role']) ?></strong> &middot; Valid until <?= date('M j, Y H:i T', $invitation['expires_at']) ?></p>
+        </div>
+      </div>
+
+      <hr class="card-divider">
+
+      <?php if (!empty($invitation['has_existing_account'])): ?>
+        <!-- EXISTING USER WORKFLOW -->
+        <div class="mb-md">
+          <div class="future-badge mb-sm">
+            <span class="badge-dot"></span>
+            <span>EXISTING ACCOUNT DETECTED</span>
+          </div>
+          <h3 class="card-title-sm">Accept with Existing Account</h3>
+          <p class="hint mt-xs">
+            An account already exists for <strong><?= escape($invitation['email']) ?></strong>. Reauthenticate with your password to link this organization role.
+          </p>
+        </div>
+
+        <form action="/invite" method="post">
+          <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+          <input type="hidden" name="token" value="<?= escape($invitationToken) ?>">
+          <input type="hidden" name="mode" value="accept">
+          <input type="hidden" name="email" value="<?= escape($invitation['email']) ?>">
+
+          <div class="form-group">
+            <label for="acc-email" class="form-label">Invited Account Email</label>
+            <input id="acc-email" type="email" value="<?= escape($invitation['email']) ?>" readonly class="readonly-input">
+          </div>
+
+          <div class="form-group">
+            <label for="acc-password" class="form-label">Current Account Password</label>
+            <input id="acc-password" name="password" type="password" autocomplete="current-password" placeholder="Enter your existing account password" maxlength="72" required>
+            <p class="hint">Required to verify account ownership before role and organization assignment.</p>
+          </div>
+
+          <div class="form-actions mt-lg">
+            <button class="button button-futureglass full-width" type="submit">Verify Password &amp; Join <?= escape($invitation['organization_name']) ?> &rarr;</button>
+          </div>
+        </form>
+
+      <?php else: ?>
+        <!-- NEW STAFF USER REGISTRATION WORKFLOW -->
+        <div class="mb-md">
+          <div class="future-badge mb-sm">
+            <span class="badge-dot"></span>
+            <span>NEW STAFF ACCOUNT SETUP</span>
+          </div>
+          <h3 class="card-title-sm">Create Your Staff Account</h3>
+          <p class="hint mt-xs">
+            Set up your name and a secure password to activate your staff membership for <strong><?= escape($invitation['organization_name']) ?></strong>.
+          </p>
+        </div>
+
+        <form action="/invite" method="post">
+          <input type="hidden" name="csrf_token" value="<?= escape(csrf_token()) ?>">
+          <input type="hidden" name="token" value="<?= escape($invitationToken) ?>">
+          <input type="hidden" name="mode" value="register">
+
+          <div class="form-group">
+            <label for="reg-name" class="form-label">Full Name</label>
+            <input id="reg-name" name="name" type="text" autocomplete="name" placeholder="e.g. Dr. Maya Lin or John Doe" maxlength="100" required>
+          </div>
+
+          <div class="form-group">
+            <label for="reg-email" class="form-label">Invited Institutional Email</label>
+            <input id="reg-email" type="email" value="<?= escape($invitation['email']) ?>" readonly class="readonly-input">
+            <p class="hint">Email address is cryptographically bound to this invitation token.</p>
+          </div>
+
+          <div class="form-group">
+            <label for="reg-password" class="form-label">Create Password</label>
+            <input id="reg-password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="72" placeholder="At least 12 characters" required>
+            <p class="hint">Must be 12&ndash;72 characters in length.</p>
+          </div>
+
+          <div class="form-group">
+            <label for="reg-password-confirm" class="form-label">Confirm Password</label>
+            <input id="reg-password-confirm" name="password_confirm" type="password" autocomplete="new-password" minlength="12" maxlength="72" placeholder="Re-enter password" required>
+          </div>
+
+          <div class="form-actions mt-lg">
+            <button class="button button-futureglass full-width" type="submit">Create Staff Account &amp; Activate Access &rarr;</button>
+          </div>
+        </form>
+      <?php endif; ?>
+
+      <hr class="card-divider">
+
+      <p class="switch text-center" style="font-size: 0.85rem;">
+        Already have access?
+        <?php if ($invitation['organization_type'] === 'COLLEGE'): ?>
+        <a href="/college/login" class="link-accent">College Placement Sign In &rarr;</a>
+        <?php else: ?>
+        <a href="/company/login" class="link-accent">Company Sign In &rarr;</a>
+        <?php endif; ?>
+      </p>
     </div>
     <?php endif; ?>
   </div>

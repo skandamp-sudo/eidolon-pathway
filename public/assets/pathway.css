@@ -3777,6 +3777,13 @@ html[data-theme="light"] .step-num {
   color: #42E8C0;
 }
 
+input[readonly], .readonly-input {
+  opacity: 0.88;
+  cursor: not-allowed;
+  background: rgba(106, 156, 255, 0.08) !important;
+  border-color: rgba(106, 156, 255, 0.25) !important;
+}
+
 /* Responsive Overrides */
 @media (max-width: 1024px) {
   .workspace-layout {

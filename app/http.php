@@ -99,6 +99,8 @@ try {
         '/admin/requests/review' => ['POST'],
         '/admin/invitations/revoke' => ['POST'],
         '/admin/invitations/create' => ['POST'],
+        '/invite' => ['GET', 'POST'],
+        '/invitation/accept' => ['GET', 'POST'],
         '/request-access' => ['GET', 'POST'],
         '/auth/login/google' => ['GET'],
         '/auth/login/github' => ['GET'],
@@ -553,6 +555,112 @@ try {
                     default => 'Could not submit request. Check input fields.',
                 };
                 header('Location: /request-access', true, 303);
+                exit;
+            }
+        }
+        if ($path === '/invite' || $path === '/invitation/accept') {
+            $rawToken = trim((string) ($_POST['token'] ?? ''));
+            if ($rawToken === '') {
+                $_SESSION['flash_error'] = 'Invitation token is required.';
+                header('Location: /invite', true, 303);
+                exit;
+            }
+            $mode = trim((string) ($_POST['mode'] ?? ''));
+            if ($mode === 'lookup' || (!isset($_POST['name']) && !isset($_POST['password']))) {
+                header('Location: /invite?token=' . urlencode($rawToken), true, 303);
+                exit;
+            }
+            if ($mode === '' && isset($_POST['name']) && trim((string)$_POST['name']) !== '') {
+                $mode = 'register';
+            }
+
+            try {
+                if ($mode === 'register') {
+                    $name = trim((string) ($_POST['name'] ?? ''));
+                    $password = (string) ($_POST['password'] ?? '');
+                    $passwordConfirm = (string) ($_POST['password_confirm'] ?? '');
+                    if ($password !== $passwordConfirm) {
+                        $_SESSION['flash_error'] = 'Passwords do not match.';
+                        header('Location: /invite?token=' . urlencode($rawToken), true, 303);
+                        exit;
+                    }
+                    $accepted = Organizations\register_and_accept_invitation($pdo, $rawToken, $name, $password);
+                    if (!session_regenerate_id(true)) {
+                        throw new \RuntimeException('Session rotation failed.');
+                    }
+                    $systemRole = $accepted['system_role'] ?? 'company';
+                    $_SESSION = [
+                        'user_id' => (int) $accepted['user_id'],
+                        'role' => $systemRole,
+                        'org_id' => (int) $accepted['organization_id'],
+                        'last_seen' => time(),
+                        'flash' => 'Welcome to EIDOLON PATHWAY! Your staff credentials have been activated.'
+                    ];
+                    csrf_token();
+                    $target = $systemRole === 'college' ? '/college/dashboard' : '/company/dashboard';
+                    header('Location: ' . $target, true, 303);
+                    exit;
+                } else {
+                    $userId = $_SESSION['user_id'] ?? null;
+                    $password = isset($_POST['password']) ? (string) $_POST['password'] : null;
+
+                    if ($userId === null) {
+                        $email = trim((string) ($_POST['email'] ?? ''));
+                        if ($email === '' || $password === null || $password === '') {
+                            $_SESSION['flash_error'] = 'Email and password are required to accept with an existing account.';
+                            header('Location: /invite?token=' . urlencode($rawToken), true, 303);
+                            exit;
+                        }
+                        $stmt = $pdo->prepare('SELECT id, email, password_hash, role FROM users WHERE email = ?');
+                        $stmt->execute([strtolower($email)]);
+                        $userRow = $stmt->fetch();
+                        if (!$userRow || !password_verify($password, $userRow['password_hash'])) {
+                            $_SESSION['flash_error'] = 'Incorrect email or password.';
+                            header('Location: /invite?token=' . urlencode($rawToken), true, 303);
+                            exit;
+                        }
+                        $userId = (int) $userRow['id'];
+                    } else {
+                        if ($password === null || $password === '') {
+                            $_SESSION['flash_error'] = 'Please enter your password to confirm invitation acceptance.';
+                            header('Location: /invite?token=' . urlencode($rawToken), true, 303);
+                            exit;
+                        }
+                    }
+
+                    $accepted = Organizations\accept_invitation($pdo, $rawToken, (int) $userId, $password);
+                    if (!session_regenerate_id(true)) {
+                        throw new \RuntimeException('Session rotation failed.');
+                    }
+                    $systemRole = $accepted['system_role'] ?? 'company';
+                    $_SESSION = [
+                        'user_id' => (int) $accepted['user_id'],
+                        'role' => $systemRole,
+                        'org_id' => (int) $accepted['organization_id'],
+                        'last_seen' => time(),
+                        'flash' => 'Staff invitation accepted! Your organization privileges are now active.'
+                    ];
+                    csrf_token();
+                    $target = $systemRole === 'college' ? '/college/dashboard' : '/company/dashboard';
+                    header('Location: ' . $target, true, 303);
+                    exit;
+                }
+            } catch (Organizations\OrganizationError $e) {
+                $_SESSION['flash_error'] = match ($e->reason) {
+                    'invitation_not_found' => 'Invalid or missing invitation token.',
+                    'invitation_already_used' => 'This invitation has already been accepted and consumed.',
+                    'invitation_revoked' => 'This invitation has been revoked.',
+                    'invitation_expired' => 'This invitation has expired.',
+                    'organization_inactive' => 'The organization is inactive or suspended.',
+                    'invitation_email_mismatch' => 'Your account email does not match the invited email address.',
+                    'invalid_credentials' => 'Incorrect password provided for confirmation.',
+                    'invalid_name' => 'Name must be between 2 and 100 characters.',
+                    'invalid_password_length' => 'Password must be between 12 and 72 characters.',
+                    'account_already_exists' => 'An account with this email already exists. Enter your password to accept.',
+                    'user_already_member' => 'You are already an active member of this organization.',
+                    default => 'Could not accept invitation: ' . $e->reason,
+                };
+                header('Location: /invite?token=' . urlencode($rawToken), true, 303);
                 exit;
             }
         }
@@ -1108,6 +1216,7 @@ try {
         $screen = match ($path) {
             '/register' => 'register',
             '/request-access' => 'request_access',
+            '/invite', '/invitation/accept' => 'accept_invitation',
             '/company/login' => 'company_login',
             '/college/login' => 'college_login',
             '/admin/login' => 'admin_login',
@@ -1117,6 +1226,31 @@ try {
         $flashError = $_SESSION['flash_error'] ?? null;
         unset($_SESSION['flash'], $_SESSION['flash_error']);
         $configuredProviders = Auth\get_configured_providers();
+
+        if ($screen === 'accept_invitation') {
+            $invitationToken = trim((string) ($_GET['token'] ?? ''));
+            $invitation = null;
+            $invitationError = null;
+            if ($invitationToken !== '') {
+                try {
+                    $invitation = Organizations\get_invitation_details($pdo, $invitationToken);
+                } catch (Organizations\OrganizationError $e) {
+                    $invitationError = match ($e->reason) {
+                        'invitation_not_found' => 'Invitation token not found or invalid.',
+                        'invitation_already_used' => 'This invitation has already been accepted and consumed.',
+                        'invitation_revoked' => 'This staff invitation has been revoked by an administrator.',
+                        'invitation_expired' => 'This staff invitation has expired (validity is 7 days). Contact your administrator for a new invite.',
+                        'organization_inactive' => 'The associated organization is currently inactive or suspended.',
+                        default => 'Invitation could not be validated.',
+                    };
+                }
+            }
+            if (isset($_SESSION['user_id'])) {
+                $stmt = $pdo->prepare('SELECT id, name, email, role FROM users WHERE id = ?');
+                $stmt->execute([(int) $_SESSION['user_id']]);
+                $user = $stmt->fetch() ?: null;
+            }
+        }
     }
 } catch (HttpError $error) {
     http_response_code($error->status);

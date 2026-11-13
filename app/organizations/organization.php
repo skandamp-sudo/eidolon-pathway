@@ -415,6 +415,67 @@ function create_invitation(
 }
 
 /**
+ * Retrieve and validate invitation details by raw token for display.
+ * Returns organization metadata and invited email without modifying state.
+ */
+function get_invitation_details(\PDO $pdo, string $rawToken): array
+{
+    $trimmedToken = trim($rawToken);
+    if ($trimmedToken === '' || strlen($trimmedToken) > 256) {
+        throw new OrganizationError('invitation_not_found', 404);
+    }
+    $tokenHash = hash('sha256', $trimmedToken);
+    $now = time();
+
+    $stmt = $pdo->prepare(
+        'SELECT i.id, i.organization_id, i.email, i.role, i.expires_at, i.used_at, i.revoked_at,
+                o.name AS org_name, o.slug AS org_slug, o.type AS org_type, o.status AS org_status
+         FROM organization_invitations i
+         JOIN organizations o ON o.id = i.organization_id
+         WHERE i.token_hash = ?'
+    );
+    $stmt->execute([$tokenHash]);
+    $inv = $stmt->fetch();
+
+    if (!$inv) {
+        throw new OrganizationError('invitation_not_found', 404);
+    }
+    if ($inv['used_at'] !== null) {
+        throw new OrganizationError('invitation_already_used', 410);
+    }
+    if (isset($inv['revoked_at']) && $inv['revoked_at'] !== null) {
+        throw new OrganizationError('invitation_revoked', 410);
+    }
+    if ($inv['expires_at'] < $now) {
+        throw new OrganizationError('invitation_expired', 410);
+    }
+    if ($inv['org_status'] !== 'ACTIVE') {
+        throw new OrganizationError('organization_inactive', 403);
+    }
+
+    $stmt = $pdo->prepare('SELECT id, name, role FROM users WHERE email = ?');
+    $stmt->execute([strtolower($inv['email'])]);
+    $existingUser = $stmt->fetch();
+
+    return [
+        'id' => (int) $inv['id'],
+        'organization_id' => (int) $inv['organization_id'],
+        'organization_name' => $inv['org_name'],
+        'organization_slug' => $inv['org_slug'],
+        'organization_type' => $inv['org_type'],
+        'email' => $inv['email'],
+        'role' => $inv['role'],
+        'expires_at' => (int) $inv['expires_at'],
+        'has_existing_account' => $existingUser !== false,
+        'existing_user' => $existingUser ? [
+            'id' => (int) $existingUser['id'],
+            'name' => $existingUser['name'],
+            'role' => $existingUser['role']
+        ] : null,
+    ];
+}
+
+/**
  * Accept a single-use staff invitation for an existing authenticated user.
  * Verifies token hash, checks expiration, checks unused status, checks org active status.
  * If password is provided, verifies user credentials to ensure the session claimant
@@ -428,7 +489,7 @@ function accept_invitation(\PDO $pdo, string $rawToken, int $userId, ?string $pa
     $pdo->exec('BEGIN IMMEDIATE');
     try {
         $stmt = $pdo->prepare(
-            'SELECT i.id, i.organization_id, i.email, i.role, i.expires_at, i.used_at, i.revoked_at, o.status AS org_status
+            'SELECT i.id, i.organization_id, i.email, i.role, i.expires_at, i.used_at, i.revoked_at, o.status AS org_status, o.type AS org_type
              FROM organization_invitations i
              JOIN organizations o ON o.id = i.organization_id
              WHERE i.token_hash = ?'
@@ -457,7 +518,7 @@ function accept_invitation(\PDO $pdo, string $rawToken, int $userId, ?string $pa
         }
 
         // Verify the accepting user's email matches the invited email
-        $stmt = $pdo->prepare('SELECT email, password_hash FROM users WHERE id = ?');
+        $stmt = $pdo->prepare('SELECT email, password_hash, role FROM users WHERE id = ?');
         $stmt->execute([$userId]);
         $userRow = $stmt->fetch();
         if (!$userRow || !is_string($userRow['email']) || strtolower($userRow['email']) !== strtolower($invitation['email'])) {
@@ -483,6 +544,16 @@ function accept_invitation(\PDO $pdo, string $rawToken, int $userId, ?string $pa
         );
         $stmt->execute([$invitation['organization_id'], $userId, $invitation['role'], $now, $now]);
 
+        // Upgrade user system role to match organization type unless user is platform admin
+        $systemRole = match ($invitation['org_type']) {
+            'COMPANY' => 'company',
+            'COLLEGE' => 'college',
+            default => null,
+        };
+        if ($systemRole !== null && ($userRow['role'] ?? '') !== 'admin') {
+            $pdo->prepare('UPDATE users SET role = ? WHERE id = ?')->execute([$systemRole, $userId]);
+        }
+
         record_audit($pdo, $userId, 'org.invitation_accepted', 'invitation', $invitation['id'], [
             'organization_id' => $invitation['organization_id'],
             'role' => $invitation['role'],
@@ -493,8 +564,10 @@ function accept_invitation(\PDO $pdo, string $rawToken, int $userId, ?string $pa
         $pdo->exec('COMMIT');
 
         return [
+            'user_id' => $userId,
             'organization_id' => (int) $invitation['organization_id'],
             'role' => $invitation['role'],
+            'system_role' => $systemRole ?? ($userRow['role'] ?? 'student'),
         ];
     } catch (\Throwable $error) {
         $pdo->exec('ROLLBACK');
@@ -601,6 +674,7 @@ function register_and_accept_invitation(
             'user_id' => $newUserId,
             'organization_id' => (int) $invitation['organization_id'],
             'role' => $invitation['role'],
+            'system_role' => $systemRole,
         ];
     } catch (\Throwable $error) {
         $pdo->exec('ROLLBACK');
